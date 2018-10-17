@@ -32,7 +32,7 @@ m = 5
 f = 0.5
 integrand = x/td*(np.exp(x**2/td**2))*(np.exp(-x/td))
 y_int = integrate.cumtrapz(integrand, x, initial = 0)
-y = y_int*2*m*f/td
+y = y_int*2.*m*f/td
 source = ColumnDataSource(data=dict(x=x, y=y))
 
 
@@ -46,12 +46,12 @@ plot.line('x', 'y', source=source, line_width=3, line_alpha=0.6)
 
 # Set up widgets
 text = TextInput(title="Title", value='My Cubic Function')
-massejecta = Slider(title="Mass of ejecta", value=1.0, start=0.0, end=10.0, step=1)
+massejecta = Slider(title="Mass of ejecta", value=1.0, start=0.1, end=10.0, step=1)
 fracradioactive = Slider(title="Radioactive stuff", value=0.5, start=0.0, end=1.0, step=0.1)
 diffusiontime = Slider(title="Diffusion time", value=10, start=1.0, end=100.0, step=1)
 
-WeirdThingyThatFlattensTheCurve = Slider(title="Weird thingy that flattens the curve", value=0.0, start=0.0, end=2*np.pi)
-height = Slider(title="Height", value=1.0, start=0.1, end=5.1, step=0.1)
+#WeirdThingyThatFlattensTheCurve = Slider(title="Weird thingy that flattens the curve", value=0.0, start=0.0, end=2*np.pi)
+#height = Slider(title="Height", value=1.0, start=0.1, end=5.1, step=0.1)
 # integrand = x**2
 
 
@@ -68,10 +68,6 @@ def update_data(attrname, old, new):
     m = massejecta.value
     td = diffusiontime.value
 
-    w = WeirdThingyThatFlattensTheCurve.value
-    k = height.value
-
-    # myint = cumtrapz(x, integrand)
 
     # Generate the new curve
     x = np.linspace(0, 100, N)
@@ -82,12 +78,12 @@ def update_data(attrname, old, new):
 
     source.data = dict(x=x, y=y)
 
-for w in [fracradioactive, massejecta, diffusiontime, WeirdThingyThatFlattensTheCurve, height]:
+for w in [fracradioactive, massejecta, diffusiontime]:
     w.on_change('value', update_data)
 
 
 # Set up layouts and add to document
-inputs = widgetbox(text, fracradioactive, massejecta, diffusiontime, WeirdThingyThatFlattensTheCurve, height)
+inputs = widgetbox(text, fracradioactive, massejecta, diffusiontime)
 
 curdoc().add_root(row(inputs, plot, width=800))
 curdoc().title = "Sliders"
