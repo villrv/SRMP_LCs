@@ -26,8 +26,6 @@ from scipy import integrate
 # Set up data
 N = 200
 x = np.linspace(0, 100, N)
-x = x
-# x = np.array([0, 1, 2, 3, 4, 5])
 td = 10
 m = 5
 f = 0.5
@@ -41,17 +39,17 @@ source = ColumnDataSource(data=dict(x=x, y=y))
 # Set up plot ; also 4,320,000 seconds is 50 days
 plot = figure(plot_height=400, plot_width=400, title="Supernova",
               tools="crosshair,pan,reset,save,wheel_zoom",
-              x_range=[0, 100], y_range=[0, 10**43])
+              x_range=[0, 100], y_range=[0, 10**43], y_axis_type="log")
 
 plot.line('x', 'y', source=source, line_width=3, line_alpha=0.6)
 
 
 # Set up widgets ; replace td with velocity and opacity
 text = TextInput(title="Title", value='My Supernova')
-massejecta = Slider(title="Mass of ejecta (super big)", value=5*10**33, start=2*10**33, end=20*10**33, step=1*10**33)
+massejecta = Slider(title="Mass of ejecta (super big)", value=5, start=1, end=20, step=1)
 fracradioactive = Slider(title="Radioactive stuff", value=0.5, start=0.0, end=1.0, step=0.1)
 # diffusiontime = Slider(title="Diffusion time", value=10, start=1.0, end=200.0, step=1)
-velocity = Slider(title="Velocity", value=10*10**8, start=5*10**8, end=20*10**8, step=1*10**8)
+velocity = Slider(title="Velocity", value=10000, start=5000, end=20000, step=1000)
 opacity = Slider(title="Opacity", value=0.2, start=0.1, end=0.5, step=0.1)
 
 # WeirdThingyThatFlattensTheCurve = Slider(title="Weird thingy that flattens the curve", value=0.0, start=0.0, end=2*np.pi)
@@ -69,14 +67,14 @@ def update_data(attrname, old, new):
 
     # Get the current slider values
     f = fracradioactive.value
-    m = massejecta.value
-    v = velocity.value
+    m = massejecta.value * 2.e33
+    v = velocity.value * 1.e5
     k = opacity.value
     e = 3.9*10**10 # epsilon ... some constant
-    c = 3*10**10 # c is the speed of light
+    c = 3.*10**10 # c is the speed of light
     b = 13.8
     tn = 8.8
-    td = (2*k*m/(b*c*v))**0.5/84600.
+    td = (2.*k*m/(b*c*v))**0.5/86400.
 
 
 
@@ -85,7 +83,7 @@ def update_data(attrname, old, new):
     integrand = x/td*(np.exp(x**2/td**2))*(np.exp(-x/tn))
     y_int = integrate.cumtrapz(integrand, x, initial = 0)
     neg = (np.exp(-x**2/td**2))
-    y = e*neg*2*m*f/(86400.*td)*y_int
+    y = e*neg*2*m*f/(td)*y_int
     print(y)
 
     source.data = dict(x=x, y=y)

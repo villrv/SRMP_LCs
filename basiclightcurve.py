@@ -46,16 +46,16 @@ source = ColumnDataSource(data=dict(x=t, y=L))
 # Set up plot
 plot = figure(plot_height=400, plot_width=400, title="super cool parabola",
               tools="crosshair,pan,reset,save,wheel_zoom",
-              x_range=[0, 4320000], y_range=[0, 10**44])
+              x_range=[0, 100], y_range=[0, 10**44], y_axis_type="log")
 
 plot.line('x', 'y', source=source, line_width=3, line_alpha=0.6)
 
 
 # Set up widgets
 text = TextInput(title="title", value='my parabola')
-M_slider = Slider(title="Ejecta Mass", value=5*(1.989*(10**33)), start=1.0*(1.989*(10**33)), end=10.0*(1.989*(10**33)), step=0.5*(1.989*(10**33)))
+M_slider = Slider(title="Ejecta Mass", value=5, start=1.0, end=10.0, step=0.5)
 f_slider = Slider(title="Fraction of Radio Active Stuff", value=0.0, start=0.0, end=1.0, step=0.1)
-v_slider = Slider(title="Ejecta Velocity", value= 12*(10**8), start=5*(10**8), end=20*(10**8), step=1*(10**8))
+v_slider = Slider(title="Ejecta Velocity", value= 12000, start=5000, end=20000, step=1000)
 k_slider = Slider(title="Kapa", value=0.25, start= 0.1, end=0.5, step=0.05)
 
 
@@ -68,20 +68,20 @@ text.on_change('value', update_title)
 def update_data(attrname, old, new):
 
     # Get the current slider values
-    M = M_slider.value
+    M = M_slider.value * 2.e33
     f = f_slider.value
-    v = v_slider.value
+    v = v_slider.value * 1.e5
     k = k_slider.value
     tn = 8.8
     B = 13.8
     c = 3*(10**10)
     E = 3.9*(10**10)
-    td = (((2*k*M)/(B*c*v))**(1./2.))/60./60./24.
+    td = (((2.*k*M)/(B*c*v))**(1./2.))/60./60./24.
     integrand = (t/td)*(np.exp(t**2/td**2))*(np.exp(-t/tn))
-    my_int = integrate.cumtrapz(t,integrand, initial = 0)
+    my_int = integrate.cumtrapz(integrand,t, initial = 0)
 
     # Generate the new curve
-    L = ((2*M*f)/(td*24.*60.*60.)) * (np.exp((-t**2)/td**2)) * E * my_int
+    L = ((2.*M*f)/(td)) * (np.exp((-t**2)/td**2)) * E * my_int
     print(L)
 
     source.data = dict(x=t, y=L)
