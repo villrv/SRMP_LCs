@@ -144,11 +144,10 @@ def update_data(attrname, old, new):
     radii = v * t * 24*60*60
     temperature = (L/(4*np.pi*(radii**2)*(5.67*10**-5)))**0.25
     wavelength = 5*10**-5
-    distance = 3*(10**19)
-    luminosityblackbody = blackbody(radii, temperature, 5*(10**-5)*np.ones(len(radii))) * wavelength**2 / c
-    print(luminosityblackbody)
+    distance = 3.*(10**19)
+    luminosityblackbody = blackbody(radii, temperature, 5.*(10**-5)*np.ones(len(radii))) * wavelength**2 / c / distance**2
     magblackbody = -2.5*np.log10(luminosityblackbody)-48.6
-
+    print(magblackbody)
     # Generate the new curve
     L = ((2.*M*f)/(td)) * (np.exp((-t**2)/td**2)) * E * my_int
     magnitude = -2.5*np.log10(L/4e33)+4.3
