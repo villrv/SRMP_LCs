@@ -22,6 +22,12 @@ from bokeh.models import ColumnDataSource
 from bokeh.models.widgets import Slider, TextInput
 from bokeh.plotting import figure
 from scipy import integrate
+# From SN2006 v
+import json
+sn = json.load(open("SN2006ca.json"))
+photom = print(sn["SN2006ca"]["photometry"])
+import requests
+import math
 
 # Set up data
 N = 200
@@ -29,6 +35,7 @@ x = np.linspace(0, 100, N)
 td = 10
 m = 5
 f = 0.5
+sig = 5.67e-5
 eval = (np.exp(x**2/td**2))
 integrand = x/td*eval*(np.exp(-x/td))
 y_int = integrate.cumtrapz(integrand, x, initial = 0)
@@ -36,10 +43,11 @@ y = y_int*2*m*f/td
 source = ColumnDataSource(data=dict(x=x, y=y))
 
 
+
 # Set up plot ; also 4,320,000 seconds is 50 days
 plot = figure(plot_height=400, plot_width=400, title="Supernova",
               tools="crosshair,pan,reset,save,wheel_zoom",
-              x_range=[0, 100], y_range=[0, 10**43], y_axis_type="log")
+              x_range=[0, 100], y_range=[-19, 19])
 
 plot.line('x', 'y', source=source, line_width=3, line_alpha=0.6)
 
@@ -63,6 +71,18 @@ def update_title(attrname, old, new):
 
 text.on_change('value', update_title)
 
+def blackbody(r, T, wav): 
+    sigb = 5.67*10**-8
+    c = 3e10
+    h = 6.26e-27
+    k = 1.38e-16
+    firstpart = (2*math.pi*c**2*h) / wav**5
+    complexthing = np.exp(((h*c)/(wav*k*T)) - 1.)
+    secondpart = 1. / complexthing
+    F = firstpart*secondpart
+    flux = F*r**2
+    return flux
+
 def update_data(attrname, old, new):
 
     # Get the current slider values
@@ -77,16 +97,26 @@ def update_data(attrname, old, new):
     td = (2.*k*m/(b*c*v))**0.5/86400.
 
 
-
     # Generate the new curve
     x = np.linspace(0, 100, N)
     integrand = x/td*(np.exp(x**2/td**2))*(np.exp(-x/tn))
     y_int = integrate.cumtrapz(integrand, x, initial = 0)
     neg = (np.exp(-x**2/td**2))
     y = e*neg*2*m*f/(td)*y_int
-    print(y)
+    mag = -2.5*np.log10(y/4e33) + 4.3
+    rad = v*x*86400
+    temp = (y/(4.*math.pi*sig*rad**2))**0.25
+    wav = 5e-5
+    d = 3e19
+    lb = blackbody(rad, temp, wav*np.ones(len(rad)))
+    lb = lb*wav**2/(c*d**2)
+    magbb = -2.5*np.log10(lb)-48.6
+    print(magbb)
 
-    source.data = dict(x=x, y=y)
+
+    # print(mag)
+
+    source.data = dict(x=x, y=mag)
 
 for w in [fracradioactive, massejecta, velocity, opacity]:
     w.on_change('value', update_data)
@@ -97,3 +127,58 @@ inputs = widgetbox(text, fracradioactive, massejecta, velocity, opacity)
 
 curdoc().add_root(row(inputs, plot, width=800))
 curdoc().title = "Sliders"
+
+# !! From SN2006 !!
+
+# plt.style.use('seaborn-whitegrid')
+
+def querry_single_osc(object_name):
+    
+    osc_link    = 'https://astrocats.space/api/' + object_name + '/photometry/time+magnitude+e_magnitude+band+upperlimit'
+    osc_request = requests.get(osc_link).json()
+    osc_data    = np.array(osc_request[object_name]['photometry'])
+    photometry_time  = osc_data.T[0].astype(float)
+    photometry_mag   = osc_data.T[1].astype(float)
+    photometry_sigma = osc_data.T[2]
+    photometry_band  = osc_data.T[3]
+    photometry_limit = osc_data.T[4]
+
+    # Convert empty sigmas to -1.0
+    photometry_sigma[np.where(photometry_sigma == '')] = -1.0
+    photometry_sigma = photometry_sigma.astype(float)
+
+    # Reformat Upper Limit
+    detection = np.where(photometry_limit != 'True')
+
+    return photometry_time, photometry_mag, photometry_sigma, photometry_band, detection
+
+photometry_time, photometry_mag, photometry_sigma, photometry_band, detection = querry_single_osc("SN2006ca")
+
+x = np.zeros(len(photometry_time))
+y = np.zeros(len(photometry_mag))
+
+x = photometry_time
+x = x - 53800
+y = photometry_mag
+
+s = photometry_sigma
+b = photometry_band
+# l = photometry_limit
+
+for i in np.arange(len(x)):
+    if photometry_band[i] == "U":
+        plot.circle([x[i]], [y[i]], size=20, color="purple", alpha=0.5)
+    elif photometry_band[i] == "B":
+        plot.circle([x[i]], [y[i]], size=20, color="pink", alpha=0.5)
+    elif photometry_band[i] == "V":
+        plot.circle([x[i]], [y[i]], size=20, color="blue", alpha=0.5)
+    elif photometry_band[i] == "r":
+        plot.circle([x[i]], [y[i]], size=20, color="yellow", alpha=0.5)
+    elif photometry_band[i] == "i":
+        plot.circle([x[i]], [y[i]], size=20, color="black", alpha=0.5)
+
+# print(x)
+
+# plt.gca().invert_yaxis()
+# plt.show()
+show(plot)
