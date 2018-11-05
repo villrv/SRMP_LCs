@@ -40,7 +40,7 @@ eval = (np.exp(x**2/td**2))
 integrand = x/td*eval*(np.exp(-x/td))
 y_int = integrate.cumtrapz(integrand, x, initial = 0)
 y = y_int*2*m*f/td
-source = ColumnDataSource(data=dict(x=x, y=y))
+source = ColumnDataSource(data=dict(x=x, y=y, yU=y, yV=y, yB=y, yR=y, yI=y))
 
 
 
@@ -50,6 +50,16 @@ plot = figure(plot_height=400, plot_width=400, title="Supernova",
               x_range=[0, 100], y_range=[-19, 19])
 
 plot.line('x', 'y', source=source, line_width=3, line_alpha=0.6)
+
+plot.line('x', 'yU', source=source, line_width=3, line_alpha=0.6)
+
+plot.line('x', 'yV', source=source, line_width=3, line_alpha=0.6)
+
+plot.line('x', 'yB', source=source, line_width=3, line_alpha=0.6)
+
+plot.line('x', 'yR', source=source, line_width=3, line_alpha=0.6)
+
+plot.line('x', 'yI', source=source, line_width=3, line_alpha=0.6)
 
 
 # Set up widgets ; replace td with velocity and opacity
@@ -107,16 +117,52 @@ def update_data(attrname, old, new):
     rad = v*x*86400
     temp = (y/(4.*math.pi*sig*rad**2))**0.25
     wav = 5e-5
-    d = 3e19
-    lb = blackbody(rad, temp, wav*np.ones(len(rad)))
-    lb = lb*wav**2/(c*d**2)
-    magbb = -2.5*np.log10(lb)-48.6
+    wavU = 3.65e-5
+    wavV = 5.51e-5
+    wavB = 4.45e-5
+    wavR = 6.58e-5
+    wavI = 8.06e-5
+    d = 8e26
+    lboriginal = blackbody(rad, temp, wav*np.ones(len(rad)))
+    lboriginal = lboriginal*wav**2/(c*d**2)
+    magbb = -2.5*np.log10(lboriginal)-48.6
+
+    lbU = blackbody(rad, temp, wavU*np.ones(len(rad)))
+    lbU = lbU*wavU**2/(c*d**2)
+    magU = -2.5*np.log10(lbU)-48.6
+
+    lbV = blackbody(rad, temp, wavV*np.ones(len(rad)))
+    lbV = lbV*wavV**2/(c*d**2)
+    magV = -2.5*np.log10(lbV)-48.6
+
+    lbB = blackbody(rad, temp, wavB*np.ones(len(rad)))
+    lbB = lbB*wavB**2/(c*d**2)
+    magB = -2.5*np.log10(lbB)-48.6
+
+    lbR = blackbody(rad, temp, wavR*np.ones(len(rad)))
+    lbR = lbR*wavR**2/(c*d**2)
+    magR = -2.5*np.log10(lbR)-48.6
+
+    lbI = blackbody(rad, temp, wavI*np.ones(len(rad)))
+    lbI = lbI*wavI**2/(c*d**2)
+    magI = -2.5*np.log10(lbI)-48.6
+
     print(magbb)
 
 
     # print(mag)
 
-    source.data = dict(x=x, y=mag)
+    source.data = dict(x=x, y=magbb, yU=magU, yV=magV, yB=magB, yR=magR, yI=magI)
+
+    # source.data = dict(x=x, yU=magU)
+
+    # source.data = dict(x=x, yV=magV)
+
+    # source.data = dict(x=x, yB=magB)
+
+    # source.data = dict(x=x, yR=magR)
+
+    # source.data = dict(x=x, yI=magI)
 
 for w in [fracradioactive, massejecta, velocity, opacity]:
     w.on_change('value', update_data)
@@ -181,4 +227,4 @@ for i in np.arange(len(x)):
 
 # plt.gca().invert_yaxis()
 # plt.show()
-show(plot)
+# show(plot)
