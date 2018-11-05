@@ -68,16 +68,20 @@ my_int = integrate.cumtrapz(t,integrand, initial = 0)
 L = ((2*M*f)/(td*24*60*60)) * (np.exp(-t**2)/td**2) * E * my_int
 
 
-source = ColumnDataSource(data=dict(x=t, y=L))
+source = ColumnDataSource(data=dict(x=t, y=L, yB=L, yr=L, yi=L, yV=L, yU=L))
 
 
 # Set up plot
 plot = figure(plot_height=400, plot_width=400, title="super cool parabola",
               tools="crosshair,pan,reset,save,wheel_zoom",
-              x_range=[0, 100], y_range=[10**44, 2*10**45])
+              x_range=[0, 100], y_range=[5, 20])
 
 plot.line('x', 'y', source=source, line_width=3, line_alpha=0.6)
-
+plot.line('x', 'yB', source=source, line_width=3, line_alpha=0.6)
+plot.line('x', 'yr', source=source, line_width=3, line_alpha=0.6)
+plot.line('x', 'yi', source=source, line_width=3, line_alpha=0.6)
+plot.line('x', 'yV', source=source, line_width=3, line_alpha=0.6)
+plot.line('x', 'yU', source=source, line_width=3, line_alpha=0.6)
 
 # Set up widgets
 text = TextInput(title="title", value='my parabola')
@@ -89,7 +93,6 @@ k_slider = Slider(title="Kapa", value=0.25, start= 0.1, end=0.5, step=0.05)
 count = 0
 for x in photometry_time:
 	x = x - 53860
-	#plt.plot(x, photometry_mag[count], "o")
 	if photometry_band[count] == "r\'":
 		plot.circle(x, photometry_mag[count], size=5, color="green", alpha=0.5)
 	elif photometry_band[count] == "i\'":
@@ -101,6 +104,7 @@ for x in photometry_time:
 	elif photometry_band[count] == "B":
 		plot.circle(x, photometry_mag[count], size=5, color="red", alpha=0.5)
 	count += 1
+
 
 show(plot)
 
@@ -143,16 +147,30 @@ def update_data(attrname, old, new):
     magnitude = -2.5*np.log10(L/4e33)+4.3
     radii = v * t * 24*60*60
     temperature = (L/(4*np.pi*(radii**2)*(5.67*10**-5)))**0.25
+    county = 0
     wavelength = 5*10**-5
-    distance = 3.*(10**19)
+    wavelength_B = 4.45*10**-5
+    wavelength_r = 6.58*10**-5
+    wavelength_i = 8.06*10**-5
+    wavelength_V = 5.51*10**-5
+    wavelength_U = 3.65*10**-5
+    distance = 8.115*10**26
     luminosityblackbody = blackbody(radii, temperature, 5.*(10**-5)*np.ones(len(radii))) * wavelength**2 / c / distance**2
+    luminosityblackbody_B = blackbody(radii, temperature, 5.*(10**-5)*np.ones(len(radii))) * wavelength_B**2 / c / distance**2
+    luminosityblackbody_r = blackbody(radii, temperature, 5.*(10**-5)*np.ones(len(radii))) * wavelength_r**2 / c / distance**2
+    luminosityblackbody_i = blackbody(radii, temperature, 5.*(10**-5)*np.ones(len(radii))) * wavelength_i**2 / c / distance**2
+    luminosityblackbody_V= blackbody(radii, temperature, 5.*(10**-5)*np.ones(len(radii))) * wavelength_V**2 / c / distance**2
+    luminosityblackbody_U = blackbody(radii, temperature, 5.*(10**-5)*np.ones(len(radii))) * wavelength_U**2 / c / distance**2
     magblackbody = -2.5*np.log10(luminosityblackbody)-48.6
-    print(magblackbody)
+    magblackbody_B = -2.5*np.log10(luminosityblackbody_B)-48.6
+    magblackbody_r = -2.5*np.log10(luminosityblackbody_r)-48.6
+    magblackbody_i = -2.5*np.log10(luminosityblackbody_i)-48.6
+    magblackbody_V = -2.5*np.log10(luminosityblackbody_V)-48.6
+    magblackbody_U = -2.5*np.log10(luminosityblackbody_U)-48.6
     # Generate the new curve
     L = ((2.*M*f)/(td)) * (np.exp((-t**2)/td**2)) * E * my_int
     magnitude = -2.5*np.log10(L/4e33)+4.3
-
-    source.data = dict(x=t, y=luminosityblackbody)
+    source.data = dict(x=t, y= magblackbody ,yB = magblackbody_B, yr = magblackbody_r,yi = magblackbody_i, yV = magblackbody_V, yU = magblackbody_U)
 
 for w in [M_slider,f_slider,v_slider, k_slider]:
     w.on_change('value', update_data)
