@@ -40,7 +40,7 @@ eval = (np.exp(x**2/td**2))
 integrand = x/td*eval*(np.exp(-x/td))
 y_int = integrate.cumtrapz(integrand, x, initial = 0)
 y = y_int*2*m*f/td
-source = ColumnDataSource(data=dict(x=x, y=y, yU=y, yV=y, yB=y, yR=y, yI=y))
+source = ColumnDataSource(data=dict(x=x, y=y, yg=y, yr=y, yi=y, yz=y))
 
 
 
@@ -51,20 +51,21 @@ plot = figure(plot_height=400, plot_width=400, title="Supernova",
 
 plot.line('x', 'y', source=source, line_width=3, line_alpha=0.6)
 
-plot.line('x', 'yU', source=source, line_width=3, line_alpha=0.6)
+plot.line('x', 'yg', source=source, line_width=3, line_alpha=0.6, line_color="red")
 
-plot.line('x', 'yV', source=source, line_width=3, line_alpha=0.6)
+plot.line('x', 'yr', source=source, line_width=3, line_alpha=0.6, line_color="yellow")
 
-plot.line('x', 'yB', source=source, line_width=3, line_alpha=0.6)
+plot.line('x', 'yi', source=source, line_width=3, line_alpha=0.6, line_color="green")
 
-plot.line('x', 'yR', source=source, line_width=3, line_alpha=0.6)
+plot.line('x', 'yz', source=source, line_width=3, line_alpha=0.6, line_color="teal")
 
-plot.line('x', 'yI', source=source, line_width=3, line_alpha=0.6)
+# plot.line('x', 'yI', source=source, line_width=3, line_alpha=0.6, line_color="purple")
 
 
 # Set up widgets ; replace td with velocity and opacity
 text = TextInput(title="Title", value='My Supernova')
 massejecta = Slider(title="Mass of ejecta (super big)", value=5, start=1, end=20, step=1)
+texplosion = Slider(title="Time", value=58100, start=58057.312, end=58164.037, step=10)
 fracradioactive = Slider(title="Radioactive stuff", value=0.5, start=0.0, end=1.0, step=0.1)
 # diffusiontime = Slider(title="Diffusion time", value=10, start=1.0, end=200.0, step=1)
 velocity = Slider(title="Velocity", value=10000, start=5000, end=20000, step=1000)
@@ -122,7 +123,7 @@ def update_data(attrname, old, new):
     wavB = 4.45e-5
     wavR = 6.58e-5
     wavI = 8.06e-5
-    d = 8e26
+    d = lumdist*3e24
     lboriginal = blackbody(rad, temp, wav*np.ones(len(rad)))
     lboriginal = lboriginal*wav**2/(c*d**2)
     magbb = -2.5*np.log10(lboriginal)-48.6
@@ -147,12 +148,14 @@ def update_data(attrname, old, new):
     lbI = lbI*wavI**2/(c*d**2)
     magI = -2.5*np.log10(lbI)-48.6
 
-    print(magbb)
+    # print(magbb)
 
 
     # print(mag)
 
-    source.data = dict(x=x, y=magbb, yU=magU, yV=magV, yB=magB, yR=magR, yI=magI)
+    source.data = dict(x=x, y=magbb, yg=magU, yr=magV, yi=magB, yz=magR)
+
+    # yI=magI
 
     # source.data = dict(x=x, yU=magU)
 
@@ -164,12 +167,12 @@ def update_data(attrname, old, new):
 
     # source.data = dict(x=x, yI=magI)
 
-for w in [fracradioactive, massejecta, velocity, opacity]:
+for w in [fracradioactive, massejecta, velocity, opacity, texplosion]:
     w.on_change('value', update_data)
 
 
 # Set up layouts and add to document
-inputs = widgetbox(text, fracradioactive, massejecta, velocity, opacity)
+inputs = widgetbox(text, fracradioactive, massejecta, velocity, opacity, texplosion)
 
 curdoc().add_root(row(inputs, plot, width=800))
 curdoc().title = "Sliders"
@@ -198,13 +201,24 @@ def querry_single_osc(object_name):
 
     return photometry_time, photometry_mag, photometry_sigma, photometry_band, detection
 
-photometry_time, photometry_mag, photometry_sigma, photometry_band, detection = querry_single_osc("SN2006ca")
+def querry_dist_thing(object_name):
+    
+    osc_link    = 'https://astrocats.space/api/' + object_name + '/lumdist'
+    osc_request = requests.get(osc_link).json()
+    osc_data    = osc_request[object_name]
+    lumdist = np.asarray(osc_data["lumdist"][0]["value"], dtype="float")
+
+    return lumdist
+
+photometry_time, photometry_mag, photometry_sigma, photometry_band, detection = querry_single_osc("Des17c1ffz")
+
+lumdist = querry_dist_thing("Des17c1ffz")
 
 x = np.zeros(len(photometry_time))
 y = np.zeros(len(photometry_mag))
 
 x = photometry_time
-x = x - 53800
+x = x - texplosion.value
 y = photometry_mag
 
 s = photometry_sigma
@@ -212,16 +226,20 @@ b = photometry_band
 # l = photometry_limit
 
 for i in np.arange(len(x)):
-    if photometry_band[i] == "U":
+    if photometry_band[i] == "g":
         plot.circle([x[i]], [y[i]], size=20, color="purple", alpha=0.5)
-    elif photometry_band[i] == "B":
-        plot.circle([x[i]], [y[i]], size=20, color="pink", alpha=0.5)
-    elif photometry_band[i] == "V":
-        plot.circle([x[i]], [y[i]], size=20, color="blue", alpha=0.5)
     elif photometry_band[i] == "r":
-        plot.circle([x[i]], [y[i]], size=20, color="yellow", alpha=0.5)
+        plot.circle([x[i]], [y[i]], size=20, color="pink", alpha=0.5)
     elif photometry_band[i] == "i":
-        plot.circle([x[i]], [y[i]], size=20, color="black", alpha=0.5)
+        plot.circle([x[i]], [y[i]], size=20, color="blue", alpha=0.5)
+    elif photometry_band[i] == "z":
+        plot.circle([x[i]], [y[i]], size=20, color="yellow", alpha=0.5)
+
+photime = np.array(photometry_time)
+
+print(texplosion)
+    # elif photometry_band[i] == "i":
+        # plot.circle([x[i]], [y[i]], size=20, color="black", alpha=0.5)
 
 # print(x)
 
