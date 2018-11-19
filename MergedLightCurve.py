@@ -8,41 +8,10 @@ from bokeh.plotting import figure
 from scipy import integrate
 import requests
 from bokeh.plotting import figure, output_file, show
-
-def querry_single_osc(object_name):
-    '''
-    Download a light curve from the Open Supernova Catalog.
-    The output will be in MJD and Magnitude
-    '''
-    osc_link    = 'https://astrocats.space/api/' + object_name + '/photometry/time+magnitude+e_magnitude+band+upperlimit'
-    osc_request = requests.get(osc_link).json()
-    osc_data    = np.array(osc_request[object_name]['photometry'])
-    photometry_time  = osc_data.T[0].astype(float)
-    photometry_mag   = osc_data.T[1].astype(float)
-    photometry_sigma = osc_data.T[2]
-    photometry_band  = osc_data.T[3]
-    photometry_limit = osc_data.T[4]
-
-    # Convert empty sigmas to -1.0
-    photometry_sigma[np.where(photometry_sigma == '')] = -1.0
-    photometry_sigma = photometry_sigma.astype(float)
-
-    # Reformat Upper Limit
-    detection = np.where(photometry_limit != 'True')
-    return photometry_time, photometry_mag, photometry_sigma, photometry_band, detection
-
-def querry_distance(object_name):
-    '''
-    Download a light curve from the Open Supernova Catalog.
-    The output will be in MJD and Magnitude
-    '''
-    osc_link    = 'https://astrocats.space/api/' + object_name + '/lumdist+redshift'
-    osc_request = requests.get(osc_link).json()
-    osc_data    = osc_request[object_name]
-    lumdist = np.array(osc_data['lumdist'][0]['value']).astype(float)
-    redshift = np.array(osc_data['redshift'][0]['value']).astype(float)
-
-    return lumdist, redshift
+from QuerySingleOSC import querry_single_osc
+from UpdateTitle import update_title
+from BlackbodyFunction import blackbody
+from QueryDistance import querry_distance
 
 photometry_time, photometry_mag, photometry_sigma, photometry_band, detection = querry_single_osc("DES17C1ffz")
 
@@ -68,7 +37,7 @@ L = ((2*M*f)/(td*24*60*60)) * (np.exp(-t**2)/td**2) * E * my_int
 source = ColumnDataSource(data=dict(x=t, y=L, yB=L, yr=L, yi=L, yV=L, yU=L))
 
 
-plot = figure(plot_height=400, plot_width=400, title="super cool parabola",
+plot = figure(plot_height=400, plot_width=400, title="Super cool blackbody curve thing",
               tools="crosshair,pan,reset,save,wheel_zoom",
               x_range=[np.min(photometry_time) - 20, np.max(photometry_time) + 100], y_range=[5, 20])
 
@@ -105,23 +74,7 @@ for x in photometry_time:
 
 show(plot)
 
-def update_title(attrname, old, new):
-    plot.title.text = text.value
-
 text.on_change('value', update_title)
-
-def blackbody(r, temp, wavelength):
-	sB = 5.670*(10*8)
-	c = 3.0*(10**10)
-	h = 6.626*(10**-27)
-	k = 1.38*(10**-16)
-
-	planks_function = ((2*np.pi*(c**2)*h)/(wavelength**5))*(1/((np.exp((h*c)/(wavelength*k*temp)))-1))
-
-	y = ((2*np.pi*(c**2)*h)/(wavelength**5))*(1/((np.exp((h*c)/(wavelength*k*temp)))-1))
-
-	flux = y*(r**2)
-	return flux 
 
 def update_data(attrname, old, new):
 
@@ -166,7 +119,7 @@ def update_data(attrname, old, new):
     L = ((2.*M*f)/(td)) * (np.exp((-t**2)/td**2)) * E * my_int
     magnitude = -2.5*np.log10(L/4e33)+4.3
 
-    
+
     source.data = dict(x=t*(1.+redshift) + T_slider.value, y= magblackbody ,yB = magblackbody_B, yr = magblackbody_r,yi = magblackbody_i, yV = magblackbody_V, yU = magblackbody_U)
 
 
