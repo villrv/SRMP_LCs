@@ -165,6 +165,8 @@ def update_data(attrname, old, new):
     # Generate the new curve
     L = ((2.*M*f)/(td)) * (np.exp((-t**2)/td**2)) * E * my_int
     magnitude = -2.5*np.log10(L/4e33)+4.3
+
+    
     source.data = dict(x=t*(1.+redshift) + T_slider.value, y= magblackbody ,yB = magblackbody_B, yr = magblackbody_r,yi = magblackbody_i, yV = magblackbody_V, yU = magblackbody_U)
 
 
