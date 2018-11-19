@@ -54,19 +54,23 @@ def querry_distance(object_name):
     Download a light curve from the Open Supernova Catalog.
     The output will be in MJD and Magnitude
     '''
-    osc_link    = 'https://astrocats.space/api/' + object_name + '/lumdist'
+    osc_link    = 'https://astrocats.space/api/' + object_name + '/lumdist+redshift'
     osc_request = requests.get(osc_link).json()
     osc_data    = osc_request[object_name]
     lumdist = np.array(osc_data['lumdist'][0]['value']).astype(float)
+    redshift = np.array(osc_data['redshift'][0]['value']).astype(float)
 
-    return lumdist
+    return lumdist, redshift
 
 photometry_time, photometry_mag, photometry_sigma, photometry_band, detection = querry_single_osc("DES17C1ffz")
 
-lumdist = querry_distance("DES17C1ffz")
+lumdist, redshift = querry_distance("DES17C1ffz")
+print(lumdist)
+print(redshift)
 
 N = 200
-t = np.linspace(0, 100, N)
+t_original = np.linspace(0, 100, N)
+t = t_original
 M = 5*(1.989*(10**33))
 f = 0.5
 k = 0.25
@@ -87,7 +91,7 @@ source = ColumnDataSource(data=dict(x=t, y=L, yB=L, yr=L, yi=L, yV=L, yU=L))
 # Set up plot
 plot = figure(plot_height=400, plot_width=400, title="super cool parabola",
               tools="crosshair,pan,reset,save,wheel_zoom",
-              x_range=[0, 100], y_range=[5, 20])
+              x_range=[np.min(photometry_time) - 20, np.max(photometry_time) + 100], y_range=[5, 20])
 
 plot.line('x', 'y', source=source, line_width=3, line_alpha=0.6)
 plot.line('x', 'yB', source=source, line_width=3, line_alpha=0.6, color="pink")
@@ -108,7 +112,6 @@ T_slider = Slider(title="Time", value= arrayoftimes.min() - 10, start= arrayofti
 
 count = 0
 for x in photometry_time:
-	x = x - T_slider.value
 	if photometry_band[count] == "r":
 		plot.circle(x, photometry_mag[count], size=5, color="orange", alpha=0.5)
 	elif photometry_band[count] == "i":
@@ -153,7 +156,7 @@ def update_data(attrname, old, new):
     f = f_slider.value
     v = v_slider.value * 1.e5
     k = k_slider.value
-    t = np.linspace(0, 100, N)
+    t = t_original
     tn = 8.8
     B = 13.8
     c = 3*(10**10)
@@ -188,7 +191,7 @@ def update_data(attrname, old, new):
     # Generate the new curve
     L = ((2.*M*f)/(td)) * (np.exp((-t**2)/td**2)) * E * my_int
     magnitude = -2.5*np.log10(L/4e33)+4.3
-    source.data = dict(x=t, y= magblackbody ,yB = magblackbody_B, yr = magblackbody_r,yi = magblackbody_i, yV = magblackbody_V, yU = magblackbody_U)
+    source.data = dict(x=t*(1.+redshift) + T_slider.value, y= magblackbody ,yB = magblackbody_B, yr = magblackbody_r,yi = magblackbody_i, yV = magblackbody_V, yU = magblackbody_U)
 
 for w in [M_slider,f_slider,v_slider, k_slider, T_slider]:
     w.on_change('value', update_data)
