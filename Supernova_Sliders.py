@@ -22,10 +22,12 @@ from bokeh.models import ColumnDataSource
 from bokeh.models.widgets import Slider, TextInput
 from bokeh.plotting import figure
 from scipy import integrate
+import matplotlib.pyplot as plt
+from scipy.optimize import curve_fit, minimize
 # From SN2006 v
 import json
 sn = json.load(open("SN2006ca.json"))
-photom = print(sn["SN2006ca"]["photometry"])
+# photom = print(sn["SN2006ca"]["photometry"])
 import requests
 import math
 
@@ -42,12 +44,43 @@ y_int = integrate.cumtrapz(integrand, x, initial = 0)
 y = y_int*2*m*f/td
 source = ColumnDataSource(data=dict(x=x, y=y, yg=y, yr=y, yi=y, yz=y))
 
+def querry_single_osc(object_name):
+    
+    osc_link    = 'https://astrocats.space/api/' + object_name + '/photometry/time+magnitude+e_magnitude+band+upperlimit'
+    osc_request = requests.get(osc_link).json()
+    osc_data    = np.array(osc_request[object_name]['photometry'])
+    photometry_time  = osc_data.T[0].astype(float)
+    photometry_mag   = osc_data.T[1].astype(float)
+    photometry_sigma = osc_data.T[2]
+    photometry_band  = osc_data.T[3]
+    photometry_limit = osc_data.T[4]
+
+    # Convert empty sigmas to -1.0
+    photometry_sigma[np.where(photometry_sigma == '')] = -1.0
+    photometry_sigma = photometry_sigma.astype(float)
+
+    # Reformat Upper Limit
+    detection = np.where(photometry_limit != 'True')
+
+    return photometry_time, photometry_mag, photometry_sigma, photometry_band, detection
+
+def querry_dist_thing(object_name):
+    
+    osc_link    = 'https://astrocats.space/api/' + object_name + '/lumdist+redshift'
+    osc_request = requests.get(osc_link).json()
+    osc_data    = osc_request[object_name]
+    lumdist = np.asarray(osc_data["lumdist"][0]["value"], dtype="float")
+    redshift = np.asarray(osc_data["redshift"][0]["value"], dtype="float")
+
+    return lumdist, redshift
+
+photometry_time, photometry_mag, photometry_sigma, photometry_band, detection = querry_single_osc("Des17c1ffz")
 
 
 # Set up plot ; also 4,320,000 seconds is 50 days
 plot = figure(plot_height=400, plot_width=400, title="Supernova",
               tools="crosshair,pan,reset,save,wheel_zoom",
-              x_range=[0, 100], y_range=[-19, 19])
+              x_range=[np.min(photometry_time)-10, np.max(photometry_time)-10], y_range=[-19, 19])
 
 plot.line('x', 'y', source=source, line_width=3, line_alpha=0.6)
 
@@ -94,6 +127,56 @@ def blackbody(r, T, wav):
     flux = F*r**2
     return flux
 
+def func(massejecta, texplosion, fracradioactive, velocity, opacity):
+    mag = -2.5*np.log10(y/4e33) + 4.3
+    return mag
+
+def chi2(params, x, flux):
+    massejecta = params[0]
+    texplosion = params[1]
+    fracradioactive = params[2]
+    velocity = params[3]
+    opacity = params[4]
+
+    return np.sum(((flux - func(x, m, b))**2/sigs))
+
+
+
+    # photometry_sigma
+
+def lumfunc (x, params):
+
+    massejecta = params[0]
+    texplosion = params[1]
+    fracradioactive = params[2]
+    velocity = params[3]
+    opacity = params[4]
+
+    k = opacity.value
+    m = massejecta.value * 2.e33
+    b = 13.8
+    c = 3.*10**10
+    v = velocity.value * 1.e5
+    td = (2.*k*m/(b*c*v))**0.5/86400.
+
+    x = np.linspace(0, 100, N)
+    neg = (np.exp(-x**2/td**2))
+    e = 3.9*10**10
+    y = e*neg*2*m*f/(td)*y_int
+
+    rad = v*x*86400
+    temp = (y/(4.*math.pi*sig*rad**2))**0.25
+    wav = 5e-5
+    d = lumdist*3e24
+    lboriginal = blackbody(rad, temp, wav*np.ones(len(rad)))
+    lboriginal = lboriginal*wav**2/(c*d**2)
+    magbb = -2.5*np.log10(lboriginal)-48.6
+
+    print(lumdist)
+    print(massejecta.value, texplosion.value, fracradioactive.value, velocity.value, opacity.value)
+    return magbb
+
+
 def update_data(attrname, old, new):
 
     # Get the current slider values
@@ -107,6 +190,7 @@ def update_data(attrname, old, new):
     tn = 8.8
     td = (2.*k*m/(b*c*v))**0.5/86400.
 
+    params = [massejecta, texplosion, fracradioactive, velocity, opacity]
 
     # Generate the new curve
     x = np.linspace(0, 100, N)
@@ -148,12 +232,14 @@ def update_data(attrname, old, new):
     lbI = lbI*wavI**2/(c*d**2)
     magI = -2.5*np.log10(lbI)-48.6
 
-    # print(magbb)
+    print(lumdist)
+    print(lumfunc(x, params))
+    print(magbb)
 
 
     # print(mag)
 
-    source.data = dict(x=x, y=magbb, yg=magU, yr=magV, yi=magB, yz=magR)
+    source.data = dict(x=(x*(1.+redshift)+texplosion.value), y=magbb, yg=magU, yr=magV, yi=magB, yz=magR)
 
     # yI=magI
 
@@ -181,44 +267,13 @@ curdoc().title = "Sliders"
 
 # plt.style.use('seaborn-whitegrid')
 
-def querry_single_osc(object_name):
-    
-    osc_link    = 'https://astrocats.space/api/' + object_name + '/photometry/time+magnitude+e_magnitude+band+upperlimit'
-    osc_request = requests.get(osc_link).json()
-    osc_data    = np.array(osc_request[object_name]['photometry'])
-    photometry_time  = osc_data.T[0].astype(float)
-    photometry_mag   = osc_data.T[1].astype(float)
-    photometry_sigma = osc_data.T[2]
-    photometry_band  = osc_data.T[3]
-    photometry_limit = osc_data.T[4]
 
-    # Convert empty sigmas to -1.0
-    photometry_sigma[np.where(photometry_sigma == '')] = -1.0
-    photometry_sigma = photometry_sigma.astype(float)
-
-    # Reformat Upper Limit
-    detection = np.where(photometry_limit != 'True')
-
-    return photometry_time, photometry_mag, photometry_sigma, photometry_band, detection
-
-def querry_dist_thing(object_name):
-    
-    osc_link    = 'https://astrocats.space/api/' + object_name + '/lumdist'
-    osc_request = requests.get(osc_link).json()
-    osc_data    = osc_request[object_name]
-    lumdist = np.asarray(osc_data["lumdist"][0]["value"], dtype="float")
-
-    return lumdist
-
-photometry_time, photometry_mag, photometry_sigma, photometry_band, detection = querry_single_osc("Des17c1ffz")
-
-lumdist = querry_dist_thing("Des17c1ffz")
+lumdist, redshift = querry_dist_thing("Des17c1ffz")
 
 x = np.zeros(len(photometry_time))
 y = np.zeros(len(photometry_mag))
 
 x = photometry_time
-x = x - texplosion.value
 y = photometry_mag
 
 s = photometry_sigma
@@ -237,7 +292,7 @@ for i in np.arange(len(x)):
 
 photime = np.array(photometry_time)
 
-print(texplosion)
+# print(texplosion)
     # elif photometry_band[i] == "i":
         # plot.circle([x[i]], [y[i]], size=20, color="black", alpha=0.5)
 
