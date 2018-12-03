@@ -17,12 +17,12 @@ in your browser.
 import scipy.integrate as integrate
 import numpy as np
 import requests
-
 from bokeh.io import curdoc
 from bokeh.layouts import row, widgetbox
 from bokeh.models import ColumnDataSource
 from bokeh.models.widgets import Slider, TextInput
 from bokeh.plotting import figure, output_file, show
+from scipy.optimize import curve_fit, minimize
 
 output_file("line.html")
 
@@ -65,8 +65,7 @@ def querry_distance(object_name):
 photometry_time, photometry_mag, photometry_sigma, photometry_band, detection = querry_single_osc("DES17C1ffz")
 
 lumdist, redshift = querry_distance("DES17C1ffz")
-print(lumdist)
-print(redshift)
+
 
 N = 200
 t_original = np.linspace(0, 100, N)
@@ -87,6 +86,27 @@ L = ((2*M*f)/(td*24*60*60)) * (np.exp(-t**2)/td**2) * E * my_int
 
 source = ColumnDataSource(data=dict(x=t, y=L, yB=L, yr=L, yi=L, yV=L, yU=L))
 
+#should this be t or T_slider as my "x"?
+def func(t, M_slider, f_slider, k_slider, v_slider):
+		td = (((2*k_slider.value*(M_slider.value * 2.e33))/(B*c*(v_slider.value * 1e5)))**(1./2.))/60./60./24.
+		tn = 8.8
+		t = t_original
+		integrand = (t/td)*(np.exp(t**2/td**2))*(np.exp(-t/tn))
+		my_int = integrate.cumtrapz(t,integrand, initial = 0)
+		L = ((2.*((M_slider.value * 2.e33)*f_slider.value))/(td)) * (np.exp((-t**2)/td**2)) * E * my_int
+		print("this is my L", L)
+		return -2.5*np.log10(L/4e33)+4.3
+
+def chi2(perams, t, L):
+        M = perams[0] * 2.e33
+        f = perams[1]
+        k = perams[2]
+        v = perams[3] * 1.e5
+        td =  perams[4]
+        T = perams[5]
+        x = t
+        y = L
+        return sum(((y-func(x - T))**2)/(photometry_sigma[t]**2))
 
 # Set up plot
 plot = figure(plot_height=400, plot_width=400, title="super cool parabola",
@@ -124,7 +144,6 @@ for x in photometry_time:
 		plot.circle(x, photometry_mag[count], size=5, color="pink", alpha=0.5)
 	count += 1
 
-print(T_slider.value)
 
 show(plot)
 
@@ -150,8 +169,7 @@ def blackbody(r, temp, wavelength):
 
 
 def update_data(attrname, old, new):
-
-    # Get the current slider values
+	# Get the current slider values
     M = M_slider.value * 2.e33
     f = f_slider.value
     v = v_slider.value * 1.e5
@@ -165,6 +183,7 @@ def update_data(attrname, old, new):
     integrand = (t/td)*(np.exp(t**2/td**2))*(np.exp(-t/tn))
     my_int = integrate.cumtrapz(integrand,t, initial = 0)
     L = ((2.*M*f)/(td)) * (np.exp((-t**2)/td**2)) * E * my_int
+    print("this is my update L", L)
     magnitude = -2.5*np.log10(L/4e33)+4.3
     radii = v * t * 24*60*60
     temperature = (L/(4*np.pi*(radii**2)*(5.67*10**-5)))**0.25
@@ -190,7 +209,9 @@ def update_data(attrname, old, new):
     magblackbody_U = -2.5*np.log10(luminosityblackbody_U)-48.6
     # Generate the new curve
     L = ((2.*M*f)/(td)) * (np.exp((-t**2)/td**2)) * E * my_int
+    print("func", func(t, M_slider, f_slider, k_slider, v_slider))
     magnitude = -2.5*np.log10(L/4e33)+4.3
+    print("mag", magnitude)
     source.data = dict(x=t*(1.+redshift) + T_slider.value, y= magblackbody ,yB = magblackbody_B, yr = magblackbody_r,yi = magblackbody_i, yV = magblackbody_V, yU = magblackbody_U)
 
 for w in [M_slider,f_slider,v_slider, k_slider, T_slider]:
