@@ -24,6 +24,7 @@ from bokeh.plotting import figure
 from scipy import integrate
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit, minimize
+from scipy import interpolate
 # From SN2006 v
 import json
 sn = json.load(open("SN2006ca.json"))
@@ -76,6 +77,7 @@ def querry_dist_thing(object_name):
 
 photometry_time, photometry_mag, photometry_sigma, photometry_band, detection = querry_single_osc("Des17c1ffz")
 
+lumdist, redshift = querry_dist_thing("Des17c1ffz")
 
 # Set up plot ; also 4,320,000 seconds is 50 days
 plot = figure(plot_height=400, plot_width=400, title="Supernova",
@@ -128,17 +130,6 @@ def blackbody(r, T, wav):
     return flux
 
 
-def chi2(params, x, flux):
-    massejecta = params[0]
-    texplosion = params[1]
-    fracradioactive = params[2]
-    velocity = params[3]
-    opacity = params[4]
-
-    return np.sum(((flux - func(x, m, b))**2/sigs))
-
-
-
     # photometry_sigma
 
 def lumfunc (x, params):
@@ -149,33 +140,49 @@ def lumfunc (x, params):
     velocity = params[3]
     opacity = params[4]
 
-    k = opacity.value
-    m = massejecta.value * 2.e33
+    k = opacity
+    m = massejecta * 2.e33
     b = 13.8
     c = 3.*10**10
-    v = velocity.value * 1.e5
+    v = velocity * 1.e5
     tn = 8.8
     td = (2.*k*m/(b*c*v))**0.5/86400.
 
-    x = np.linspace(0, 100, N)
-    neg = (np.exp(-x**2/td**2))
+    xoriginal = np.linspace(0, 250, N)
+    neg = (np.exp(-xoriginal**2/td**2))
     e = 3.9*10**10
-    integrand = x/td*(np.exp(x**2/td**2))*(np.exp(-x/tn))
-    y_int = integrate.cumtrapz(integrand, x, initial = 0)
+    integrand = xoriginal/td*(np.exp(xoriginal**2/td**2))*(np.exp(-xoriginal/tn))
+    y_int = integrate.cumtrapz(integrand, xoriginal, initial = 0)
     y = e*neg*2*m*f/(td)*y_int
     mag = -2.5*np.log10(y/4e33) + 4.3
-    print('new mag',mag)
+    # print('new mag',mag)
 
-    rad = v*x*86400.
+    rad = v*xoriginal*86400.
     temp = (y/(4.*math.pi*sig*rad**2))**0.25
     wav = 5.e-5
     d = lumdist*3e24
     lboriginal = blackbody(rad, temp, wav*np.ones(len(rad)))
-    lboriginal = lboriginal*wav**2/(c*d**2)
-    magbb = -2.5*np.log10(lboriginal)-48.6
+    lboriginal = lboriginal*wav**2/(c*d**2)*xoriginal
+    magbb = -2.5*np.log10(lboriginal)-48.
 
-    print(massejecta.value, texplosion.value, fracradioactive.value, velocity.value, opacity.value)
+    # print(x-texplosion)
+
+    interpfunc = interpolate.interp1d(xoriginal, magbb, bounds_error = False, fill_value = 30)
+    magbb = interpfunc(x-texplosion)
+
+    # print(massejecta.value, texplosion.value, fracradioactive.value, velocity.value, opacity.value)
     return magbb
+
+def chi2(params, x, flux, sigs):
+    massejecta = params[0]
+    texplosion = params[1]
+    fracradioactive = params[2]
+    velocity = params[3]
+    opacity = params[4]
+
+    # print(np.shape(flux), np.shape(lumfunc(x, params))) 
+    return np.sum(((flux - lumfunc(x, params))**2/sigs))
+
 
 
 def update_data(attrname, old, new):
@@ -191,7 +198,7 @@ def update_data(attrname, old, new):
     tn = 8.8
     td = (2.*k*m/(b*c*v))**0.5/86400.
 
-    params = [massejecta, texplosion, fracradioactive, velocity, opacity]
+    params = [massejecta.value, texplosion.value, fracradioactive.value, velocity.value, opacity.value]
 
     # Generate the new curve
     x = np.linspace(0, 100, N)
@@ -200,7 +207,7 @@ def update_data(attrname, old, new):
     neg = (np.exp(-x**2/td**2))
     y = e*neg*2*m*f/(td)*y_int
     mag = -2.5*np.log10(y/4e33) + 4.3
-    print('mag in orignal',mag)
+    # print('mag in orignal',mag)
     rad = v*x*86400
     temp = (y/(4.*math.pi*sig*rad**2))**0.25
     wav = 5.e-5
@@ -239,10 +246,14 @@ def update_data(attrname, old, new):
     print(lumfunc(x, params))
     #print(magbb)
 
+    x0 = [5, 58000, 0.5, 10000, 0.2]
+    res = minimize(chi2, x0, args=(photometry_time, photometry_mag, photometry_sigma))
 
     # print(mag)
 
-    source.data = dict(x=(x*(1.+redshift)+texplosion.value), y=magbb, yg=magU, yr=magV, yi=magB, yz=magR)
+    print(texplosion.value)
+    print("Test") # uhhh it's printing 30?
+    source.data = dict(x=(x*(1.+redshift)+texplosion.value), y=magbb, yg=magU, yr=magV, yi=magB, yz=lumfunc(x, res.x))
 
     # yI=magI
 
@@ -269,9 +280,6 @@ curdoc().title = "Sliders"
 # !! From SN2006 !!
 
 # plt.style.use('seaborn-whitegrid')
-
-
-lumdist, redshift = querry_dist_thing("Des17c1ffz")
 
 x = np.zeros(len(photometry_time))
 y = np.zeros(len(photometry_mag))
