@@ -127,9 +127,6 @@ def blackbody(r, T, wav):
     flux = F*r**2
     return flux
 
-def func(massejecta, texplosion, fracradioactive, velocity, opacity):
-    mag = -2.5*np.log10(y/4e33) + 4.3
-    return mag
 
 def chi2(params, x, flux):
     massejecta = params[0]
@@ -157,22 +154,26 @@ def lumfunc (x, params):
     b = 13.8
     c = 3.*10**10
     v = velocity.value * 1.e5
+    tn = 8.8
     td = (2.*k*m/(b*c*v))**0.5/86400.
 
     x = np.linspace(0, 100, N)
     neg = (np.exp(-x**2/td**2))
     e = 3.9*10**10
+    integrand = x/td*(np.exp(x**2/td**2))*(np.exp(-x/tn))
+    y_int = integrate.cumtrapz(integrand, x, initial = 0)
     y = e*neg*2*m*f/(td)*y_int
+    mag = -2.5*np.log10(y/4e33) + 4.3
+    print('new mag',mag)
 
-    rad = v*x*86400
+    rad = v*x*86400.
     temp = (y/(4.*math.pi*sig*rad**2))**0.25
-    wav = 5e-5
+    wav = 5.e-5
     d = lumdist*3e24
     lboriginal = blackbody(rad, temp, wav*np.ones(len(rad)))
     lboriginal = lboriginal*wav**2/(c*d**2)
     magbb = -2.5*np.log10(lboriginal)-48.6
 
-    print(lumdist)
     print(massejecta.value, texplosion.value, fracradioactive.value, velocity.value, opacity.value)
     return magbb
 
@@ -199,9 +200,10 @@ def update_data(attrname, old, new):
     neg = (np.exp(-x**2/td**2))
     y = e*neg*2*m*f/(td)*y_int
     mag = -2.5*np.log10(y/4e33) + 4.3
+    print('mag in orignal',mag)
     rad = v*x*86400
     temp = (y/(4.*math.pi*sig*rad**2))**0.25
-    wav = 5e-5
+    wav = 5.e-5
     wavU = 3.65e-5
     wavV = 5.51e-5
     wavB = 4.45e-5
@@ -209,6 +211,7 @@ def update_data(attrname, old, new):
     wavI = 8.06e-5
     d = lumdist*3e24
     lboriginal = blackbody(rad, temp, wav*np.ones(len(rad)))
+
     lboriginal = lboriginal*wav**2/(c*d**2)
     magbb = -2.5*np.log10(lboriginal)-48.6
 
@@ -232,9 +235,9 @@ def update_data(attrname, old, new):
     lbI = lbI*wavI**2/(c*d**2)
     magI = -2.5*np.log10(lbI)-48.6
 
-    print(lumdist)
+    #print(lumdist)
     print(lumfunc(x, params))
-    print(magbb)
+    #print(magbb)
 
 
     # print(mag)
