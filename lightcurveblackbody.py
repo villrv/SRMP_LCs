@@ -14,6 +14,7 @@ at your command prompt. Then navigate to the URL
 in your browser.
 
 '''
+from scipy import interpolate
 import scipy.integrate as integrate
 import numpy as np
 import requests
@@ -66,9 +67,10 @@ photometry_time, photometry_mag, photometry_sigma, photometry_band, detection = 
 
 lumdist, redshift = querry_distance("DES17C1ffz")
 
-
+distance = lumdist * (3*10**24) 
+arrayoftimes = np.array(photometry_time)
 N = 200
-t_original = np.linspace(0, 100, N)
+t_original = np.linspace(0, 300, N)
 t = t_original
 M = 5*(1.989*(10**33))
 f = 0.5
@@ -88,14 +90,15 @@ source = ColumnDataSource(data=dict(x=t, y=L, yB=L, yr=L, yi=L, yV=L, yU=L))
 
 #should this be t or T_slider as my "x"?
 def func(t, M_slider, f_slider, k_slider, v_slider):
-		td = (((2*k_slider.value*(M_slider.value * 2.e33))/(B*c*(v_slider.value * 1e5)))**(1./2.))/60./60./24.
+		td = (((2*k_slider*(M_slider * 2.e33))/(B*c*(v_slider * 1e5)))**(1./2.))/60./60./24.
 		tn = 8.8
-		t = t_original
-		integrand = (t/td)*(np.exp(t**2/td**2))*(np.exp(-t/tn))
-		my_int = integrate.cumtrapz(t,integrand, initial = 0)
-		L = ((2.*((M_slider.value * 2.e33)*f_slider.value))/(td)) * (np.exp((-t**2)/td**2)) * E * my_int
-		print("this is my L", L)
-		return -2.5*np.log10(L/4e33)+4.3
+		integrand = (t_original/td)*(np.exp(t_original**2/td**2))*(np.exp(-t_original/tn))
+		my_int = integrate.cumtrapz(t_original,integrand, initial = 0)
+		L = (((2.*((M_slider * 2.e33)*f_slider))/(td)) * (np.exp((-t_original**2)/td**2)) * E * my_int) / distance**2
+		mag = -2.5*np.log10(L/4e33) - 48.6
+		interpfunc = interpolate.interp1d(t_original, mag, bounds_error = False, fill_value = 30)
+		magbb = interpfunc(t)
+		return magbb
 
 def chi2(perams, t, L):
         M = perams[0] * 2.e33
@@ -106,7 +109,11 @@ def chi2(perams, t, L):
         T = perams[5]
         x = t
         y = L
-        return sum(((y-func(x - T))**2)/(photometry_sigma[t]**2))
+        return sum(((y-func(x - T, M, f, k, v))**2)/(photometry_sigma**2))
+
+x0 = [5, .5, 0.25, 12000, 36, arrayoftimes.min() - 10]
+
+res = minimize(chi2, x0, args=(photometry_time, photometry_mag))
 
 # Set up plot
 plot = figure(plot_height=400, plot_width=400, title="super cool parabola",
@@ -119,8 +126,6 @@ plot.line('x', 'yr', source=source, line_width=3, line_alpha=0.6, color="orange"
 plot.line('x', 'yi', source=source, line_width=3, line_alpha=0.6, color="blue")
 plot.line('x', 'yV', source=source, line_width=3, line_alpha=0.6, color="turquoise")
 plot.line('x', 'yU', source=source, line_width=3, line_alpha=0.6, color="purple")
-
-arrayoftimes = np.array(photometry_time)
 
 # Set up widgets
 text = TextInput(title="title", value='my parabola')
@@ -183,7 +188,6 @@ def update_data(attrname, old, new):
     integrand = (t/td)*(np.exp(t**2/td**2))*(np.exp(-t/tn))
     my_int = integrate.cumtrapz(integrand,t, initial = 0)
     L = ((2.*M*f)/(td)) * (np.exp((-t**2)/td**2)) * E * my_int
-    print("this is my update L", L)
     magnitude = -2.5*np.log10(L/4e33)+4.3
     radii = v * t * 24*60*60
     temperature = (L/(4*np.pi*(radii**2)*(5.67*10**-5)))**0.25
@@ -194,7 +198,7 @@ def update_data(attrname, old, new):
     wavelength_i = 8.06*10**-5
     wavelength_V = 5.51*10**-5
     wavelength_U = 3.65*10**-5
-    distance = lumdist * (3*10**24)
+    distance = lumdist * (3*10**24) 
     luminosityblackbody = blackbody(radii, temperature, 5.*(10**-5)*np.ones(len(radii))) * wavelength**2 / c / distance**2
     luminosityblackbody_B = blackbody(radii, temperature, 5.*(10**-5)*np.ones(len(radii))) * wavelength_B**2 / c / distance**2
     luminosityblackbody_r = blackbody(radii, temperature, 5.*(10**-5)*np.ones(len(radii))) * wavelength_r**2 / c / distance**2
@@ -207,12 +211,15 @@ def update_data(attrname, old, new):
     magblackbody_i = -2.5*np.log10(luminosityblackbody_i)-48.6
     magblackbody_V = -2.5*np.log10(luminosityblackbody_V)-48.6
     magblackbody_U = -2.5*np.log10(luminosityblackbody_U)-48.6
+    x0 = [5, .5, 0.25, 12000, 36, arrayoftimes.min() - 10]
+    res = minimize(chi2, x0, args=(photometry_time, photometry_mag))
     # Generate the new curve
-    L = ((2.*M*f)/(td)) * (np.exp((-t**2)/td**2)) * E * my_int
-    print("func", func(t, M_slider, f_slider, k_slider, v_slider))
-    magnitude = -2.5*np.log10(L/4e33)+4.3
-    print("mag", magnitude)
-    source.data = dict(x=t*(1.+redshift) + T_slider.value, y= magblackbody ,yB = magblackbody_B, yr = magblackbody_r,yi = magblackbody_i, yV = magblackbody_V, yU = magblackbody_U)
+    L = (((2.*M*f)/(td)) * (np.exp((-t**2)/td**2)) * E * my_int) / distance**2
+    magnitude = -2.5*np.log10(L/4e33) - 48.6
+    print(magnitude)
+    source.data = dict(x=t*(1.+redshift) + T_slider.value, y= magblackbody ,yB = func(t, res.x[0], res.x[1], res.x[2], res.x[3]), yr = magblackbody_r,yi = magblackbody_i, yV = magblackbody_V, yU = magblackbody_U)
+    print(func(t, res.x[0], res.x[1], res.x[2], res.x[3]))
+
 
 for w in [M_slider,f_slider,v_slider, k_slider, T_slider]:
     w.on_change('value', update_data)
