@@ -107,7 +107,6 @@ def func(t, M_slider, f_slider, k_slider, v_slider):
         mag = -2.5 * np.log10(L) - 48.
         interpfunc = interpolate.interp1d(t_original, mag, bounds_error = False, fill_value = 30)
         magbb = interpfunc(t)
-        print(magbb,t)
         return magbb
 
 def chi2(perams, t, L):
@@ -118,7 +117,6 @@ def chi2(perams, t, L):
         print('params',perams)
         #T = perams[5]
         y = L
-        print(y,func(t , M, f, k, v),photometry_sigma**2)
         return np.nansum(((y-func(t , M, f, k, v))**2)/(photometry_sigma**2))
 
 x0 = [5, .5, 0.25, 12000]
@@ -220,7 +218,8 @@ def update_data(attrname, old, new):
     magblackbody_V = -2.5*np.log10(luminosityblackbody_V)-48.6
     magblackbody_U = -2.5*np.log10(luminosityblackbody_U)-48.6
     x0 = [5, .5, 0.25, 12000]
-    res = minimize(chi2, x0, args=(photometry_time - T_slider.value, photometry_mag))
+    bnds = ((0, None), (0, 1), (.1,.4), (0, None))
+    res = minimize(chi2, x0, args=(photometry_time - T_slider.value, photometry_mag), bounds=bnds)
     # Generate the new curve
     L = (((2.*M*f)/(td)) * (np.exp((-t**2)/td**2)) * E * my_int) / distance**2
     magnitude = -2.5*np.log10(L/4e33) - 48.6
