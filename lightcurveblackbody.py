@@ -67,9 +67,9 @@ photometry_time, photometry_mag, photometry_sigma, photometry_band, detection = 
 
 lumdist, redshift = querry_distance("DES17C1ffz")
 
-distance = lumdist * (3*10**24) 
+distance = lumdist * (3.e24)
 arrayoftimes = np.array(photometry_time)
-N = 200
+N = 300
 t_original = np.linspace(0, 300, N)
 t = t_original
 M = 5*(1.989*(10**33))
@@ -78,7 +78,7 @@ k = 0.25
 v = 12*(10**8)
 tn = 8.8
 B = 13.8
-c = 3*(10**10)
+c = 3.*(10**10)
 E = 3.9*(10**10)
 td = (((2*k*M)/(B*c*v))**(1./2.))/60./60./24.
 integrand = (t/td)*(np.exp(t**2/td**2))*(np.exp(-t/tn))
@@ -90,30 +90,38 @@ source = ColumnDataSource(data=dict(x=t, y=L, yB=L, yr=L, yi=L, yV=L, yU=L))
 
 #should this be t or T_slider as my "x"?
 def func(t, M_slider, f_slider, k_slider, v_slider):
-		td = (((2*k_slider*(M_slider * 2.e33))/(B*c*(v_slider * 1e5)))**(1./2.))/60./60./24.
-		tn = 8.8
-		integrand = (t_original/td)*(np.exp(t_original**2/td**2))*(np.exp(-t_original/tn))
-		my_int = integrate.cumtrapz(t_original,integrand, initial = 0)
-		L = (((2.*((M_slider * 2.e33)*f_slider))/(td)) * (np.exp((-t_original**2)/td**2)) * E * my_int) / distance**2
-		mag = -2.5*np.log10(L/4e33) - 48.6
-		interpfunc = interpolate.interp1d(t_original, mag, bounds_error = False, fill_value = 30)
-		magbb = interpfunc(t)
-		return magbb
+
+        M_slider = M_slider * 2.e33
+        v_slider = v_slider * 1.e5
+
+        td = (2. * k_slider * M_slider / (B * c * v_slider))**0.5 / 86400.0
+        tn = 8.8
+
+        integrand = (t_original/td)*(np.exp(t_original**2/td**2))*(np.exp(-t_original/tn))
+        my_int = integrate.cumtrapz(integrand,t_original, initial = 0)
+        L = 2. * M_slider * f_slider/td * np.exp(-t_original**2/td**2) * E * my_int / distance**2
+
+        wav = 5.e-5
+        L = L / (c/wav)
+
+        mag = -2.5 * np.log10(L) - 48.
+        interpfunc = interpolate.interp1d(t_original, mag, bounds_error = False, fill_value = 30)
+        magbb = interpfunc(t)
+        print(magbb,t)
+        return magbb
 
 def chi2(perams, t, L):
-        M = perams[0] * 2.e33
+        M = perams[0]
         f = perams[1]
         k = perams[2]
-        v = perams[3] * 1.e5
-        td =  perams[4]
-        T = perams[5]
-        x = t
+        v = perams[3]
+        print('params',perams)
+        #T = perams[5]
         y = L
-        return sum(((y-func(x - T, M, f, k, v))**2)/(photometry_sigma**2))
+        print(y,func(t , M, f, k, v),photometry_sigma**2)
+        return np.nansum(((y-func(t , M, f, k, v))**2)/(photometry_sigma**2))
 
-x0 = [5, .5, 0.25, 12000, 36, arrayoftimes.min() - 10]
-
-res = minimize(chi2, x0, args=(photometry_time, photometry_mag))
+x0 = [5, .5, 0.25, 12000]
 
 # Set up plot
 plot = figure(plot_height=400, plot_width=400, title="super cool parabola",
@@ -137,17 +145,17 @@ T_slider = Slider(title="Time", value= arrayoftimes.min() - 10, start= arrayofti
 
 count = 0
 for x in photometry_time:
-	if photometry_band[count] == "r":
-		plot.circle(x, photometry_mag[count], size=5, color="orange", alpha=0.5)
-	elif photometry_band[count] == "i":
-		plot.circle(x, photometry_mag[count], size=5, color="blue", alpha=0.5)
-	elif photometry_band[count] == "g":
-		plot.circle(x, photometry_mag[count], size=5, color="turquoise", alpha=0.5)
-	elif photometry_band[count] == "z":
-		plot.circle(x, photometry_mag[count], size=5, color="purple", alpha=0.5)
-	elif photometry_band[count] == "B":
-		plot.circle(x, photometry_mag[count], size=5, color="pink", alpha=0.5)
-	count += 1
+    if photometry_band[count] == "r":
+        plot.circle(x, photometry_mag[count], size=5, color="orange", alpha=0.5)
+    elif photometry_band[count] == "i":
+        plot.circle(x, photometry_mag[count], size=5, color="blue", alpha=0.5)
+    elif photometry_band[count] == "g":
+        plot.circle(x, photometry_mag[count], size=5, color="turquoise", alpha=0.5)
+    elif photometry_band[count] == "z":
+        plot.circle(x, photometry_mag[count], size=5, color="purple", alpha=0.5)
+    elif photometry_band[count] == "B":
+        plot.circle(x, photometry_mag[count], size=5, color="pink", alpha=0.5)
+    count += 1
 
 
 show(plot)
@@ -160,21 +168,21 @@ def update_title(attrname, old, new):
 text.on_change('value', update_title)
 
 def blackbody(r, temp, wavelength):
-	sB = 5.670*(10*8)
-	c = 3.0*(10**10)
-	h = 6.626*(10**-27)
-	k = 1.38*(10**-16)
+    sB = 5.670*(10*8)
+    c = 3.0*(10**10)
+    h = 6.626*(10**-27)
+    k = 1.38*(10**-16)
 
-	planks_function = ((2*np.pi*(c**2)*h)/(wavelength**5))*(1/((np.exp((h*c)/(wavelength*k*temp)))-1))
+    planks_function = ((2*np.pi*(c**2)*h)/(wavelength**5))*(1/((np.exp((h*c)/(wavelength*k*temp)))-1))
 
-	y = ((2*np.pi*(c**2)*h)/(wavelength**5))*(1/((np.exp((h*c)/(wavelength*k*temp)))-1))
+    y = ((2*np.pi*(c**2)*h)/(wavelength**5))*(1/((np.exp((h*c)/(wavelength*k*temp)))-1))
 
-	flux = y*(r**2)
-	return flux 
+    flux = y*(r**2)
+    return flux 
 
 
 def update_data(attrname, old, new):
-	# Get the current slider values
+    # Get the current slider values
     M = M_slider.value * 2.e33
     f = f_slider.value
     v = v_slider.value * 1.e5
@@ -211,14 +219,13 @@ def update_data(attrname, old, new):
     magblackbody_i = -2.5*np.log10(luminosityblackbody_i)-48.6
     magblackbody_V = -2.5*np.log10(luminosityblackbody_V)-48.6
     magblackbody_U = -2.5*np.log10(luminosityblackbody_U)-48.6
-    x0 = [5, .5, 0.25, 12000, 36, arrayoftimes.min() - 10]
-    res = minimize(chi2, x0, args=(photometry_time, photometry_mag))
+    x0 = [5, .5, 0.25, 12000]
+    res = minimize(chi2, x0, args=(photometry_time - T_slider.value, photometry_mag))
     # Generate the new curve
     L = (((2.*M*f)/(td)) * (np.exp((-t**2)/td**2)) * E * my_int) / distance**2
     magnitude = -2.5*np.log10(L/4e33) - 48.6
-    print(magnitude)
+
     source.data = dict(x=t*(1.+redshift) + T_slider.value, y= magblackbody ,yB = func(t, res.x[0], res.x[1], res.x[2], res.x[3]), yr = magblackbody_r,yi = magblackbody_i, yV = magblackbody_V, yU = magblackbody_U)
-    print(func(t, res.x[0], res.x[1], res.x[2], res.x[3]))
 
 
 for w in [M_slider,f_slider,v_slider, k_slider, T_slider]:

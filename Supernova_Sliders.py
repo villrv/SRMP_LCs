@@ -135,10 +135,10 @@ def blackbody(r, T, wav):
 def lumfunc (x, params):
 
     massejecta = params[0]
-    texplosion = params[1]
-    fracradioactive = params[2]
-    velocity = params[3]
-    opacity = params[4]
+    #texplosion = params[1]
+    fracradioactive = params[1]
+    velocity = params[2]
+    opacity = params[3]
 
     k = opacity
     m = massejecta * 2.e33
@@ -165,23 +165,21 @@ def lumfunc (x, params):
     lboriginal = lboriginal*wav**2/(c*d**2)*xoriginal
     magbb = -2.5*np.log10(lboriginal)-48.
 
-    # print(x-texplosion)
 
     interpfunc = interpolate.interp1d(xoriginal, magbb, bounds_error = False, fill_value = 30)
-    magbb = interpfunc(x-texplosion)
-
-    # print(massejecta.value, texplosion.value, fracradioactive.value, velocity.value, opacity.value)
+    magbb = interpfunc(x)
     return magbb
 
 def chi2(params, x, flux, sigs):
     massejecta = params[0]
-    texplosion = params[1]
-    fracradioactive = params[2]
-    velocity = params[3]
-    opacity = params[4]
+    #texplosion = params[1]
+    fracradioactive = params[1]
+    velocity = params[2]
+    opacity = params[3]
 
-    # print(np.shape(flux), np.shape(lumfunc(x, params))) 
-    return np.sum(((flux - lumfunc(x, params))**2/sigs))
+    print(flux,lumfunc(x, params))
+    print('chi2',np.sum(((flux - lumfunc(x, params))**2/sigs**2)))
+    return np.sum(((flux - lumfunc(x, params))**2/sigs**2))
 
 
 
@@ -246,8 +244,8 @@ def update_data(attrname, old, new):
     print(lumfunc(x, params))
     #print(magbb)
 
-    x0 = [5, 58000, 0.5, 10000, 0.2]
-    res = minimize(chi2, x0, args=(photometry_time, photometry_mag, photometry_sigma))
+    x0 = [5, 0.5, 10000, 0.2]
+    res = minimize(chi2, x0, args=(photometry_time - texplosion.value, photometry_mag, photometry_sigma))
 
     # print(mag)
 
