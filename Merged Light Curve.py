@@ -2,16 +2,45 @@ import numpy as np
 
 from bokeh.io import curdoc
 from bokeh.layouts import row, widgetbox
-from bokeh.models import ColumnDataSource, CustomJS
+from bokeh.models import ColumnDataSource
 from bokeh.models.widgets import Slider, TextInput
 from bokeh.plotting import figure, output_file, save
 from scipy import integrate
-import requests
-from bokeh.plotting import figure, output_file, show
-from QuerySingleOSC import querry_single_osc
-from UpdateTitle import update_title
-from BlackbodyFunction import blackbody
-from QueryDistance import querry_distance
+
+def querry_single_osc(object_name):
+    '''
+    Download a light curve from the Open Supernova Catalog.
+    The output will be in MJD and Magnitude
+    '''
+    osc_link    = 'https://astrocats.space/api/' + object_name + '/photometry/time+magnitude+e_magnitude+band+upperlimit'
+    osc_request = requests.get(osc_link).json()
+    osc_data    = np.array(osc_request[object_name]['photometry'])
+    photometry_time  = osc_data.T[0].astype(float)
+    photometry_mag   = osc_data.T[1].astype(float)
+    photometry_sigma = osc_data.T[2]
+    photometry_band  = osc_data.T[3]
+    photometry_limit = osc_data.T[4]
+
+    # Convert empty sigmas to -1.0
+    photometry_sigma[np.where(photometry_sigma == '')] = -1.0
+    photometry_sigma = photometry_sigma.astype(float)
+
+    # Reformat Upper Limit
+    detection = np.where(photometry_limit != 'True')
+    return photometry_time, photometry_mag, photometry_sigma, photometry_band, detection
+
+def querry_distance(object_name):
+    '''
+    Download a light curve from the Open Supernova Catalog.
+    The output will be in MJD and Magnitude
+    '''
+    osc_link    = 'https://astrocats.space/api/' + object_name + '/lumdist+redshift'
+    osc_request = requests.get(osc_link).json()
+    osc_data    = osc_request[object_name]
+    lumdist = np.array(osc_data['lumdist'][0]['value']).astype(float)
+    redshift = np.array(osc_data['redshift'][0]['value']).astype(float)
+
+    return lumdist, redshift
 
 photometry_time, photometry_mag, photometry_sigma, photometry_band, detection = querry_single_osc("DES17C1ffz")
 
@@ -36,73 +65,8 @@ L = ((2*M*f)/(td*24*60*60)) * (np.exp(-t**2)/td**2) * E * my_int
 
 source = ColumnDataSource(data=dict(x=t, y=L, yB=L, yr=L, yi=L, yV=L, yU=L))
 
-callback=CustomJS(args=dict(source=source), code="""
 
-function numerically_integrate(a, b, dx, f,td) {
-    
-    // calculate the number of trapezoids
-    n = (b - a) / dx;
-    
-    // define the variable for area
-    Area = 0;
-    
-    //loop to calculate the area of each trapezoid and sum.
-    for (i = 1; i <= n; i++) {
-        //the x locations of the left and right side of each trapezpoid
-        x0 = a + (i-1)*dx;
-        x1 = a + i*dx;
-        
-        // the area of each trapezoid
-        Ai = dx * (f(x0,td) + f(x1,td))/ 2.;
-        
-        // cumulatively sum the areas
-        Area = Area + Ai    
-        
-    } 
-    return Area;
-}
-
-
-//define function to be integrated
-function f1(x,td){
-    return x / td * Math.exp(Math.pow(x/td,2)) * Math.exp(-x/8.77);
-}
-
-function f2(x,td){
-    return x / td * Math.exp(Math.pow(x/td,2)) * Math.exp(-x/111);
-}
-
-dx = 0.1;       // width of the trapezoids
-
-var tni = 8.8;
-var tco = 111.3;
-var epni = 3.9e10;
-var epco = 6.8e9;
-var beta = 13.8;
-var c = 1.0e10;
-var msol = 2e33;
-var m = mej.value;
-m = m * msol;
-var mni = fni.value;
-mni = mni * m;
-var v = vej.value;
-v = v * Math.pow (10,5);
-var k = k.value;
-var td = Math.sqrt(2. * k * m / (beta * c * v)) / 86400;
-var data = source.data;
-x = data['x']
-y = data['y']
-for (j = 0; j < x.length; j++) {
-    int1 = numerically_integrate(0,x[j],dx,f1,td);
-    int2 = numerically_integrate(0,x[j],dx,f2,td);
-    factor = 2 * mni / td * Math.exp(-Math.pow(x[j]/td,2));
-    y[j] = factor * ((epni-epco) * int1 + epco * int2);
-}
-source.change.emit();
-""")
-
-
-plot = figure(plot_height=400, plot_width=400, title="Super cool blackbody curve thing",
+plot = figure(plot_height=400, plot_width=400, title="super cool parabola",
               tools="crosshair,pan,reset,save,wheel_zoom",
               x_range=[np.min(photometry_time) - 20, np.max(photometry_time) + 100], y_range=[5, 20])
 
@@ -116,20 +80,12 @@ plot.line('x', 'yU', source=source, line_width=3, line_alpha=0.6, color="purple"
 arrayoftimes = np.array(photometry_time)
 
 text = TextInput(title="title", value='my parabola')
-M_slider = Slider(start=0.1, end=10, value=1, step=.1,
-                     title="Ejecta Mass", callback=callback)
-f_slider = Slider(start=0.01, end=1.0, value=0.1, step=.01,
-                    title="Nickel Fraction", callback=callback)
-v_slider = Slider(start=5000, end=20000, value=10000, step=1000,
-                      title="Ejecta Velocity", callback=callback)
-k_slider = Slider(start=0.1, end=0.4, value=0.2, step=.01,
-                       title="Opacity", callback=callback)
+M_slider = Slider(title="Ejecta Mass", value=5, start=1.0, end=10.0, step=0.5)
+f_slider = Slider(title="Fraction of Radio Active Stuff", value=0.0, start=0.0, end=1.0, step=0.1)
+v_slider = Slider(title="Ejecta Velocity", value= 12000, start=5000, end=20000, step=1000)
+k_slider = Slider(title="Kapa", value=0.25, start= 0.1, end=0.5, step=0.05)
 T_slider = Slider(title="Time", value= arrayoftimes.min() - 10, start= arrayoftimes.min() - 10, end=arrayoftimes.max() + 10, step= 10)
 
-callback.args["mej"] = M_slider
-callback.args["fni"] = f_slider
-callback.args["vej"] = v_slider
-callback.args["k"] = k_slider
 
 count = 0
 for x in photometry_time:
@@ -145,7 +101,26 @@ for x in photometry_time:
 		plot.circle(x, photometry_mag[count], size=5, color="pink", alpha=0.5)
 	count += 1
 
+output_file("Bokeh.html")
+save(plot)
+
+def update_title(attrname, old, new):
+    plot.title.text = text.value
+
 text.on_change('value', update_title)
+
+def blackbody(r, temp, wavelength):
+	sB = 5.670*(10*8)
+	c = 3.0*(10**10)
+	h = 6.626*(10**-27)
+	k = 1.38*(10**-16)
+
+	planks_function = ((2*np.pi*(c**2)*h)/(wavelength**5))*(1/((np.exp((h*c)/(wavelength*k*temp)))-1))
+
+	y = ((2*np.pi*(c**2)*h)/(wavelength**5))*(1/((np.exp((h*c)/(wavelength*k*temp)))-1))
+
+	flux = y*(r**2)
+	return flux 
 
 def update_data(attrname, old, new):
 
@@ -189,8 +164,6 @@ def update_data(attrname, old, new):
     # Generate the new curve
     L = ((2.*M*f)/(td)) * (np.exp((-t**2)/td**2)) * E * my_int
     magnitude = -2.5*np.log10(L/4e33)+4.3
-
-
     source.data = dict(x=t*(1.+redshift) + T_slider.value, y= magblackbody ,yB = magblackbody_B, yr = magblackbody_r,yi = magblackbody_i, yV = magblackbody_V, yU = magblackbody_U)
 
 
@@ -203,6 +176,3 @@ inputs = widgetbox(text, M_slider, f_slider, v_slider, k_slider, T_slider)
 
 curdoc().add_root(row(inputs, plot, width=800))
 curdoc().title = "Sliders"
-
-output_file("NewBokeh.html")
-save(plot)
