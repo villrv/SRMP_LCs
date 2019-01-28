@@ -72,7 +72,7 @@ function f2(x,td){
     return x / td * Math.exp(Math.pow(x/td,2)) * Math.exp(-x/111);
 }
 
-dx = 0.1;       // width of the trapezoids
+dx = 0.5;       // width of the trapezoids
 
 var tni = 8.8;
 var tco = 111.3;
@@ -83,20 +83,31 @@ var c = 1.0e10;
 var msol = 2e33;
 var m = mej.value;
 m = m * msol;
+var wav = 6e-5;
 var mni = fni.value;
 mni = mni * m;
+var T = T.value;
 var v = vej.value;
 v = v * Math.pow (10,5);
 var k = k.value;
 var td = Math.sqrt(2. * k * m / (beta * c * v)) / 86400;
 var data = source.data;
+var xstop = 0.0;
 x = data['x']
 y = data['y']
+console.log(x);
+console.log(y);
+var distance = distance.value * 3e24;
+var redshift = redshift.value;
 for (j = 0; j < x.length; j++) {
-    int1 = numerically_integrate(0,x[j],dx,f1,td);
-    int2 = numerically_integrate(0,x[j],dx,f2,td);
-    factor = 2 * mni / td * Math.exp(-Math.pow(x[j]/td,2));
-    y[j] = factor * ((epni-epco) * int1 + epco * int2);
+    xstop = j * dx;
+    int1 = numerically_integrate(0,xstop,dx,f1,td);
+    int2 = numerically_integrate(0,xstop,dx,f2,td);
+    factor = 2 * mni / td * Math.exp(-Math.pow(xstop/td,2));
+    L = factor * ((epni-epco) * int1 + epco * int2) / (4.*3.14*Math.pow(distance,2));
+    y[j] = -2.5 * Math.log10(L*wav/c)-48.3;
+    console.log(y[j]);
+    x[j] = dx * j + T;
 }
 source.change.emit();
 """)
@@ -107,15 +118,18 @@ plot = figure(plot_height=400, plot_width=400, title="Super cool blackbody curve
               x_range=[np.min(photometry_time) - 20, np.max(photometry_time) + 100], y_range=[5, 20])
 
 plot.line('x', 'y', source=source, line_width=3, line_alpha=0.6)
-plot.line('x', 'yB', source=source, line_width=3, line_alpha=0.6, color="pink")
-plot.line('x', 'yr', source=source, line_width=3, line_alpha=0.6, color="orange")
-plot.line('x', 'yi', source=source, line_width=3, line_alpha=0.6, color="blue")
-plot.line('x', 'yV', source=source, line_width=3, line_alpha=0.6, color="turquoise")
-plot.line('x', 'yU', source=source, line_width=3, line_alpha=0.6, color="purple")
+#plot.line('x', 'yB', source=source, line_width=3, line_alpha=0.6, color="pink")
+#plot.line('x', 'yr', source=source, line_width=3, line_alpha=0.6, color="orange")
+#plot.line('x', 'yi', source=source, line_width=3, line_alpha=0.6, color="blue")
+#plot.line('x', 'yV', source=source, line_width=3, line_alpha=0.6, color="turquoise")
+#plot.line('x', 'yU', source=source, line_width=3, line_alpha=0.6, color="purple")
 
 arrayoftimes = np.array(photometry_time)
 
 text = TextInput(title="title", value='my parabola')
+lumdist_input = TextInput(title="title", value=str(lumdist))
+redshift_input = TextInput(title="title", value=str(redshift))
+
 M_slider = Slider(start=0.1, end=10, value=1, step=.1,
                      title="Ejecta Mass", callback=callback)
 f_slider = Slider(start=0.01, end=1.0, value=0.1, step=.01,
@@ -124,12 +138,18 @@ v_slider = Slider(start=5000, end=20000, value=10000, step=1000,
                       title="Ejecta Velocity", callback=callback)
 k_slider = Slider(start=0.1, end=0.4, value=0.2, step=.01,
                        title="Opacity", callback=callback)
-T_slider = Slider(title="Time", value= arrayoftimes.min() - 10, start= arrayoftimes.min() - 10, end=arrayoftimes.max() + 10, step= 10)
+T_slider = Slider(title="Time", value= arrayoftimes.min() - 10,
+            start= arrayoftimes.min() - 10, end=arrayoftimes.max() + 10,
+                  step= 10,callback=callback)
 
 callback.args["mej"] = M_slider
 callback.args["fni"] = f_slider
 callback.args["vej"] = v_slider
 callback.args["k"] = k_slider
+callback.args["T"] = T_slider
+
+callback.args["distance"] = lumdist_input
+callback.args["redshift"] = redshift_input
 
 count = 0
 for x in photometry_time:
@@ -194,15 +214,19 @@ def update_data(attrname, old, new):
     source.data = dict(x=t*(1.+redshift) + T_slider.value, y= magblackbody ,yB = magblackbody_B, yr = magblackbody_r,yi = magblackbody_i, yV = magblackbody_V, yU = magblackbody_U)
 
 
-for w in [M_slider,f_slider,v_slider, k_slider, T_slider]:
-    w.on_change('value', update_data)
+#for w in [M_slider,f_slider,v_slider, k_slider, T_slider]:
+#    w.on_change('value', update_data)
 
 
 # Set up layouts and add to document
 inputs = widgetbox(text, M_slider, f_slider, v_slider, k_slider, T_slider)
-
-curdoc().add_root(row(inputs, plot, width=800))
-curdoc().title = "Sliders"
+layout = row(
+    plot,
+    inputs,
+)
 
 output_file("NewBokeh.html")
+
 save(plot)
+show(layout)
+
