@@ -12,6 +12,7 @@ from QuerySingleOSC import querry_single_osc
 from UpdateTitle import update_title
 from BlackbodyFunction import blackbody
 from QueryDistance import querry_distance
+from bokeh.models.sources import AjaxDataSource
 
 photometry_time, photometry_mag, photometry_sigma, photometry_band, detection = querry_single_osc("DES17C1ffz")
 
@@ -37,11 +38,26 @@ L = ((2*M*f)/(td*24*60*60)) * (np.exp(-t**2)/td**2) * E * my_int
 source = ColumnDataSource(data=dict(x=t, y=L, yB=L, yr=L, yi=L, yV=L, yU=L))
 
 callback2=CustomJS(args=dict(source=source), code="""
-	var request = new XMLHttpRequest();
-	request.open('GET', 'https://astrocats.space/api/DES17C1ffz/lumdist+redshift');
-	console.log(request);
-
+	const url = 'https://astrocats.space/api/DES17C1ffz/lumdist+redshift';
+	console.log('hi');
+fetch(url, {
+  method: "GET",
+  mode: 'cors',
+  headers: {
+    "Content-Type": "text/html"
+  }
+}).then(function(res) {
+console.log(res);
+  if (res.ok) {
+    alert("Perfect! Your settings are saved.");
+  } else if (res.status == 401) {
+    alert("Oops! You are not authorized.");
+  }
+}, function(e) {
+  alert("Error submitting form!");
+});
 	""")
+
 callback=CustomJS(args=dict(source=source), code="""
 
 function numerically_integrate(a, b, dx, f,td) {
