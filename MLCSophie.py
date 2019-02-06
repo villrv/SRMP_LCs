@@ -40,39 +40,8 @@ source = ColumnDataSource(data=dict(x=t, y=L, yB=L, yr=L, yi=L, yV=L, yU=L))
 x=[58050, 58075, 58100, 58150, 58200]
 y=[28,26,24,22,20]
 
-source2 = ColumnDataSource(data=dict(x=x, y=y))
 
-callback2=CustomJS(args=dict(source=source2), code="""
-	var sourcedata = source.data;
-	const url = 'https://astrocats.space/api/' + supernovae.value + '/photometry/time+magnitude+e_magnitude+band+upperlimit';
-fetch(url, {
-  method: "GET",
-  mode: 'cors',
-  headers: {
-    "Content-Type": "text/html"
-  }
-}).then(function(response) {
-    return response.json();
-  })
-  .then(function(myJson) {
-    var data = myJson[supernovae.value]["photometry"];
-    var x = [];
-    for (i = 0; i < data.length; i++) {
-    	x.push(parseFloat(data[i][0]));
-    }
-    console.log(x);
-    var y = [];
-    for (i = 0; i < data.length; i++) {
-    	y.push(parseFloat(data[i][1]));
-    }
-    console.log(y);
-    sourcedata["x"] = x;
-    console.log(x.length);
-    sourcedata["y"] = y;
-    console.log(y.length);
-    source.change.emit();
-  })
-	""")
+source2 = ColumnDataSource(data=dict(x=x, y=y))
 
 callback=CustomJS(args=dict(source=source), code="""
 
@@ -150,10 +119,49 @@ for (j = 0; j < x.length; j++) {
 source.change.emit();
 """)
 
-
 plot = figure(plot_height=400, plot_width=400, title="Super cool blackbody curve thing",
               tools="crosshair,pan,reset,save,wheel_zoom",
               x_range=[np.min(photometry_time) - 20, np.max(photometry_time) + 100], y_range=[np.max(photometry_mag), np.min(photometry_mag)])
+
+
+callback2=CustomJS(args=dict(source=source2, plotrange=plot.x_range, plotrange_y=plot.y_range), code="""
+	var sourcedata = source.data;
+	const url = 'https://astrocats.space/api/' + supernovae.value + '/photometry/time+magnitude+e_magnitude+band+upperlimit';
+fetch(url, {
+  method: "GET",
+  mode: 'cors',
+  headers: {
+    "Content-Type": "text/html"
+  }
+}).then(function(response) {
+    return response.json();
+  })
+  .then(function(myJson) {
+    var data = myJson[supernovae.value]["photometry"];
+    var x = [];
+    var y = [];
+    for (i = 0; i < data.length; i++) {
+    	if (!data[i][4]) {
+    	x.push(parseFloat(data[i][0]));
+    	y.push(parseFloat(data[i][1]));
+    	}
+    } 
+    function bouncer(arr) {
+    return r.filter(Boolean);
+    }
+    x = bouncer(x);
+    y = bouncer(y);
+    sourcedata["x"] = x;
+    sourcedata["y"] = y;
+    plotrange.start = Math.min(x);
+    plotrange_y.start = Math.min(y);
+    plotrange.end = Math.max(x);
+    plotrange_y.end = Math.max(y);
+    plotrange.change.emit();
+    plotrange_y.change.emit();
+    source.change.emit();
+  })
+	""")
 
 
 plot.line('x', 'y', source=source, line_width=3, line_alpha=0.6)
@@ -193,6 +201,9 @@ callback.args["distance"] = lumdist_input
 callback.args["redshift"] = redshift_input
 
 callback2.args["supernovae"] = text
+
+
+plot.x_range.start = 10
 
 # count = 0
 # for x in photometry_time:
