@@ -41,37 +41,6 @@ y = [19, 20, 23, 25, 27]
 source = ColumnDataSource(data=dict(x=t, y=L, yB=L, yr=L, yi=L, yV=L, yU=L))
 source2 = ColumnDataSource(data=dict(x=x, y=y))
 
-callback2=CustomJS(args=dict(source=source2), code="""
-	const url = 'https://astrocats.space/api/' + TextThing.value + '/photometry/time+magnitude+e_magnitude+band+upperlimit';
-    var sourcedata = source.data;
-fetch(url, {
-  method: "GET",
-  mode: 'cors',
-  headers: {
-    "Content-Type": "text/html"
-  }
-}).then(function(response) {
-    return response.json();
-  })
-  .then(function(myJson) {
-    var data = (myJson[TextThing.value]["photometry"]);
-    var x = [];
-    var y = [];
-    
-    for (i = 0; i < data.length; i++){
-    x.push(parseFloat(data[i][0]));
-    y.push(parseFloat(data[i][1]));
-
-    console.log(x);}
-
-    sourcedata["y"] = y;
-    sourcedata["x"] = x;
-    source.change.emit();
-    console.log(x.length);
-    console.log(sourcedata["y"]);
-  })
-	""")
-
 callback=CustomJS(args=dict(source=source), code="""
 
 function numerically_integrate(a, b, dx, f,td) {
@@ -152,6 +121,55 @@ source.change.emit();
 plot = figure(plot_height=400, plot_width=400, title="Super cool blackbody curve thing",
               tools="crosshair,pan,reset,save,wheel_zoom",
               x_range=[np.min(photometry_time) - 20, np.max(photometry_time) + 100], y_range=[np.max(photometry_mag), np.min(photometry_mag)])
+
+callback2=CustomJS(args=dict(source=source2, plotrange = plot.x_range, yplotrange = plot.y_range), code="""
+	const url = 'https://astrocats.space/api/' + TextThing.value + '/photometry/time+magnitude+e_magnitude+band+upperlimit';
+    var sourcedata = source.data;
+fetch(url, {
+  method: "GET",
+  mode: 'cors',
+  headers: {
+    "Content-Type": "text/html"
+  }
+}).then(function(response) {
+    return response.json();
+  })
+  .then(function(myJson) {
+    var data = (myJson[TextThing.value]["photometry"]);
+    var x = [];
+    var y = [];
+    
+    for (i = 0; i < data.length; i++){
+    if (!data[i][4]){
+    x.push(parseFloat(data[i][0]));
+    y.push(parseFloat(data[i][1]));
+    }
+    }
+
+    function bouncer(arr){
+    return arr.filter(Boolean);
+    }
+
+    x = bouncer(x);
+    y = bouncer(y);
+
+    console.log(x);
+    console.log(y);
+
+    sourcedata["y"] = y;
+    sourcedata["x"] = x;
+    plotrange.start = Math.min(x);
+	plotrange.change.emit();
+	yplotrange.start = Math.min(y);
+	yplotrange.change.emit();
+	plotrange.end = Math.max(x);
+	yplotrange.end = Math.max(x);
+    source.change.emit();
+
+    console.log(Math.min(x));
+
+  })
+	""")
 
 
 plot.line('x', 'y', source=source, line_width=3, line_alpha=0.6)
