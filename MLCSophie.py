@@ -58,12 +58,12 @@ fetch(url, {
     var data = myJson[supernovae.value]["photometry"];
     var x = [];
     for (i = 0; i < data.length; i++) {
-    	x.push(data[i][0]);
+    	x.push(parseFloat(data[i][0]));
     }
     console.log(x);
     var y = [];
     for (i = 0; i < data.length; i++) {
-    	y.push(data[i][1]);
+    	y.push(parseFloat(data[i][1]));
     }
     console.log(y);
     sourcedata["x"] = x;

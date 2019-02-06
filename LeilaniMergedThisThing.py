@@ -44,7 +44,6 @@ source2 = ColumnDataSource(data=dict(x=x, y=y))
 callback2=CustomJS(args=dict(source=source2), code="""
 	const url = 'https://astrocats.space/api/' + TextThing.value + '/photometry/time+magnitude+e_magnitude+band+upperlimit';
     var sourcedata = source.data;
-	console.log(TextThing.value);
 fetch(url, {
   method: "GET",
   mode: 'cors',
@@ -57,20 +56,19 @@ fetch(url, {
   .then(function(myJson) {
     var data = (myJson[TextThing.value]["photometry"]);
     var x = [];
+    var y = [];
+    
     for (i = 0; i < data.length; i++){
-    x.push(data[i][0]);
+    x.push(parseFloat(data[i][0]));
+    y.push(parseFloat(data[i][1]));
+
     console.log(x);}
 
-    var y = [];
-    for (i = 0; i < data.length; i++){
-    y.push(data[i][1]);
-    console.log(y);}
-
-    sourcedata["x"] = x;
     sourcedata["y"] = y;
+    sourcedata["x"] = x;
     source.change.emit();
     console.log(x.length);
-    console.log(y.length);
+    console.log(sourcedata["y"]);
   })
 	""")
 
