@@ -38,8 +38,8 @@ x = [58050, 58100, 58155, 58199, 58220]
 y = [19, 20, 23, 25, 27]
 
 
-source = ColumnDataSource(data=dict(x=t, y=L, yB=L, yr=L, yi=L, yV=L, yU=L))
-source2 = ColumnDataSource(data=dict(x=x, y=y))
+source = ColumnDataSource(data=dict(x=x, y=y, dyg=y, dyr=y, dyi=y, dyB=y))
+source2 = ColumnDataSource(data=dict(x=x, y=y, dyg=y, dyr=y, dyi=y, dyB=y))
 
 callback=CustomJS(args=dict(source=source), code="""
 
@@ -89,6 +89,10 @@ var msol = 2e33;
 var m = mej.value;
 m = m * msol;
 var wav = 6e-5;
+var wav_dyg = 6e-5;
+var wav_dyr = 6e-5;
+var wav_dyi = 6e-5;
+var wav_dyB = 6e-5;
 var mni = fni.value;
 mni = mni * m;
 var T = T.value;
@@ -100,6 +104,10 @@ var data = source.data;
 var xstop = 0.0;
 x = data['x']
 y = data['y']
+dyg = data['dyg']
+dyr = data['dyr']
+dyi = data['dyi']
+dyB = data['dyB']
 console.log(x);
 console.log(y);
 var distance = distance.value * 3e24;
@@ -112,6 +120,10 @@ for (j = 0; j < x.length; j++) {
     factor = 2 * mni / td * Math.exp(-Math.pow(xstop/td,2));
     L = factor * ((epni-epco) * int1 + epco * int2) / (4.*3.14*Math.pow(distance,2));
     y[j] = -2.5 * Math.log10(L*wav/c)-48.3;
+    dyg[j] = -2.5 * Math.log10(L*wav_dyg/c)-48.3;
+    dyr[j] = -2.5 * Math.log10(L*wav_dyr/c)-48.3;
+    dyi[j] = -2.5 * Math.log10(L*wav_dyi/c)-48.3;
+    dyB[j] = -2.5 * Math.log10(L*wav_dyB/c)-48.3;
     x[j] = (dx*(1+redshift)) * j + T;
 }
 source.change.emit();
@@ -138,11 +150,39 @@ fetch(url, {
     var data = (myJson[TextThing.value]["photometry"]);
     var x = [];
     var y = [];
-    
+    var dyg = [];
+    var dyr = [];
+    var dyi = [];
+    var dyB = [];
+
+
     for (i = 0; i < data.length; i++){
     if (!data[i][4]){
     x.push(parseFloat(data[i][0]));
     y.push(parseFloat(data[i][1]));
+    if (data[i][3] == "g"){
+    dyg.push(parseFloat(data[i][1]));
+    }else{
+    dyg.push(NaN);
+    }
+
+    if (data[i][3] == "r"){
+    dyr.push(parseFloat(data[i][1]));
+    }else{
+    dyr.push(NaN);
+    }
+
+    if (data[i][3] == "i"){
+    dyi.push(parseFloat(data[i][1]));
+    }else{
+    dyi.push(NaN);
+    }
+
+    if (data[i][3] == "B"){
+    dyB.push(parseFloat(data[i][1]));
+    }else{
+    dyB.push(NaN);
+    }
     }
     }
 
@@ -156,8 +196,12 @@ fetch(url, {
     console.log(x);
     console.log(y);
 
-    sourcedata["y"] = y;
     sourcedata["x"] = x;
+    sourcedata["y"] = y;
+    sourcedata["dyg"] = dyg;
+    sourcedata["dyr"] = dyr;
+    sourcedata["dyi"] = dyi;
+    sourcedata["dyB"] = dyB;
     plotrange.start = Math.min(x);
 	plotrange.start = Math.min.apply(Math, x);
     yplotrange.start = Math.max.apply(Math, y);
@@ -253,11 +297,17 @@ source.change.emit();
 
 plot.line('x', 'y', source=source, line_width=3, line_alpha=0.6)
 plot.circle('x', 'y', source=source2)
-#plot.line('x', 'yB', source=source, line_width=3, line_alpha=0.6, color="pink")
-#plot.line('x', 'yr', source=source, line_width=3, line_alpha=0.6, color="orange")
-#plot.line('x', 'yi', source=source, line_width=3, line_alpha=0.6, color="blue")
-#plot.line('x', 'yV', source=source, line_width=3, line_alpha=0.6, color="turquoise")
-#plot.line('x', 'yU', source=source, line_width=3, line_alpha=0.6, color="purple")
+
+# plot.line('x', 'dyg', source=source, line_width=3, line_alpha=0.6, color="pink")
+# plot.line('x', 'dyr', source=source, line_width=3, line_alpha=0.6, color="orange")
+# plot.line('x', 'dyi', source=source, line_width=3, line_alpha=0.6, color="blue")
+# plot.line('x', 'dyB', source=source, line_width=3, line_alpha=0.6, color="turquoise")
+# plot.line('x', 'yU', source=source, line_width=3, line_alpha=0.6, color="purple")
+
+plot.circle('x', 'dyg', source=source2, line_width=3, line_alpha=0.6, color="purple")
+plot.circle('x', 'dyr', source=source2, line_width=3, line_alpha=0.6, color="darkseagreen")
+plot.circle('x', 'dyi', source=source2, line_width=3, line_alpha=0.6, color="aliceblue")
+plot.circle('x', 'dyB', source=source2, line_width=3, line_alpha=0.6, color="#e34a33")
 
 arrayoftimes = np.array(photometry_time)
 
