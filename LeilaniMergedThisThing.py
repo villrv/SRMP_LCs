@@ -159,17 +159,96 @@ fetch(url, {
     sourcedata["y"] = y;
     sourcedata["x"] = x;
     plotrange.start = Math.min(x);
-	plotrange.change.emit();
-	yplotrange.start = Math.min(y);
-	yplotrange.change.emit();
-	plotrange.end = Math.max(x);
-	yplotrange.end = Math.max(x);
+	plotrange.start = Math.min.apply(Math, x);
+    yplotrange.start = Math.max.apply(Math, y);
+    plotrange.end  = Math.max.apply(Math, x);
+    yplotrange.end = Math.min.apply(Math, y);
+    plotrange.change.emit();
+    yplotrange.change.emit();
     source.change.emit();
-
     console.log(Math.min(x));
 
   })
 	""")
+
+callbackSlider=CustomJS(args=dict(source=source, plotrange = plot.x_range), code="""
+
+function numerically_integrate(a, b, dx, f,td) {
+    
+    // calculate the number of trapezoids
+    n = (b - a) / dx;
+    
+    // define the variable for area
+    Area = 0;
+    
+    //loop to calculate the area of each trapezoid and sum.
+    for (i = 1; i <= n; i++) {
+        //the x locations of the left and right side of each trapezpoid
+        x0 = a + (i-1)*dx;
+        x1 = a + i*dx;
+        
+        // the area of each trapezoid
+        Ai = dx * (f(x0,td) + f(x1,td))/ 2.;
+        
+        // cumulatively sum the areas
+        Area = Area + Ai    
+        
+    } 
+    return Area;
+}
+
+
+//define function to be integrated
+function f1(x,td){
+    return x / td * Math.exp(Math.pow(x/td,2)) * Math.exp(-x/8.77);
+}
+
+function f2(x,td){
+    return x / td * Math.exp(Math.pow(x/td,2)) * Math.exp(-x/111);
+}
+
+dx = 0.5;       // width of the trapezoids
+
+T.start = plotrange.start;
+T.end = plotrange.end;
+plotrange.change.emit();x
+var tni = 8.8;
+var tco = 111.3;
+var epni = 3.9e10;
+var epco = 6.8e9;
+var beta = 13.8;
+var c = 1.0e10;
+var msol = 2e33;
+var m = mej.value;
+m = m * msol;
+var wav = 6e-5;
+var mni = fni.value;
+mni = mni * m;
+var T = T.value;
+var v = vej.value;
+v = v * Math.pow (10,5);
+var k = k.value;
+var td = Math.sqrt(2. * k * m / (beta * c * v)) / 86400;
+var data = source.data;
+var xstop = 0.0;
+x = data['x']
+y = data['y']
+console.log(x);
+console.log(y);
+var distance = distance.value * 3e24;
+var redshift = redshift.value;
+redshift = parseFloat(redshift);
+for (j = 0; j < x.length; j++) {
+    xstop = j * dx;
+    int1 = numerically_integrate(0,xstop,dx,f1,td);
+    int2 = numerically_integrate(0,xstop,dx,f2,td);
+    factor = 2 * mni / td * Math.exp(-Math.pow(xstop/td,2));
+    L = factor * ((epni-epco) * int1 + epco * int2) / (4.*3.14*Math.pow(distance,2));
+    y[j] = -2.5 * Math.log10(L*wav/c)-48.3;
+    x[j] = (dx*(1+redshift)) * j + T;
+}
+source.change.emit();
+""")
 
 
 plot.line('x', 'y', source=source, line_width=3, line_alpha=0.6)
@@ -197,13 +276,19 @@ k_slider = Slider(start=0.1, end=0.4, value=0.2, step=.01,
                        title="Opacity", callback=callback)
 T_slider = Slider(title="Time", value= arrayoftimes.min() - 10,
             start= arrayoftimes.min() - 10, end=arrayoftimes.max() + 10,
-                  step= 10,callback=callback)
+                  step= 10,callback=callbackSlider)
 
 callback.args["mej"] = M_slider
 callback.args["fni"] = f_slider
 callback.args["vej"] = v_slider
 callback.args["k"] = k_slider
 callback.args["T"] = T_slider
+
+callbackSlider.args["mej"] = M_slider
+callbackSlider.args["fni"] = f_slider
+callbackSlider.args["vej"] = v_slider
+callbackSlider.args["k"] = k_slider
+callbackSlider.args["T"] = T_slider
 
 callback2.args["TextThing"] = text
 
