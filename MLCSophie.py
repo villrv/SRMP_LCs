@@ -147,16 +147,16 @@ fetch(url, {
     	}
     } 
     function bouncer(arr) {
-    return r.filter(Boolean);
+    return arr.filter(Boolean);
     }
     x = bouncer(x);
     y = bouncer(y);
     sourcedata["x"] = x;
     sourcedata["y"] = y;
-    plotrange.start = Math.min(x);
-    plotrange_y.start = Math.min(y);
-    plotrange.end = Math.max(x);
-    plotrange_y.end = Math.max(y);
+    plotrange.start = Math.min.apply(Math, x);
+    plotrange_y.start = Math.max.apply(Math, y);
+    plotrange.end  = Math.max.apply(Math, x);
+    plotrange_y.end = Math.min.apply(Math, y);
     plotrange.change.emit();
     plotrange_y.change.emit();
     source.change.emit();
