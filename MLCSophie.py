@@ -19,7 +19,7 @@ photometry_time, photometry_mag, photometry_sigma, photometry_band, detection = 
 lumdist, redshift = querry_distance("DES17C1ffz")
 
 N = 200
-t_original = np.linspace(0, 100, N)
+t_original = np.linspace(0, 500, N)
 t = t_original
 M = 5*(1.989*(10**33))
 f = 0.5
@@ -35,15 +35,24 @@ my_int = integrate.cumtrapz(t,integrand, initial = 0)
 L = ((2*M*f)/(td*24*60*60)) * (np.exp(-t**2)/td**2) * E * my_int
 
 
-source = ColumnDataSource(data=dict(x=t, y=L, yB=L, yr=L, yi=L, yV=L, yU=L))
-
-x=[58050, 58075, 58100, 58150, 58200]
-y=[28,26,24,22,20]
+source = ColumnDataSource(data=dict(x=t, y=L, yB=L, yR=L, yi=L, yG=L))
 
 
-source2 = ColumnDataSource(data=dict(x=x, y=y))
+x=t
+y=L
 
-callback=CustomJS(args=dict(source=source), code="""
+source2 = ColumnDataSource(data=dict(x=x, y=y, yG=y, yR=y, yi=y, yB=y))
+
+
+plot = figure(plot_height=400, plot_width=400, title="Super cool blackbody curve thing",
+              tools="crosshair,pan,reset,save,wheel_zoom",
+              x_range=[np.min(photometry_time) - 20, np.max(photometry_time) + 100], y_range=[np.max(photometry_mag), np.min(photometry_mag)])
+
+callback=CustomJS(args=dict(source=source, plotrange=plot.x_range), code="""
+
+T.start = plotrange.start;
+T.end = plotrange.end;
+plotrange.change.emit();
 
 function numerically_integrate(a, b, dx, f,td) {
     
@@ -91,6 +100,10 @@ var msol = 2e33;
 var m = mej.value;
 m = m * msol;
 var wav = 6e-5;
+var wavG = 4.64e-5;
+var wavR = 6.58e-5;
+var wavi = 8.06e-5;
+var wavB = 4.45e-5;
 var mni = fni.value;
 mni = mni * m;
 var T = T.value;
@@ -100,8 +113,12 @@ var k = k.value;
 var td = Math.sqrt(2. * k * m / (beta * c * v)) / 86400;
 var data = source.data;
 var xstop = 0.0;
-x = data['x']
-y = data['y']
+x = data['x'];
+y = data['y'];
+yG = data['yG'];
+yR = data['yR'];
+yi = data['yi'];
+yB = data['yB']
 console.log(x);
 console.log(y);
 var distance = distance.value * 3e24;
@@ -114,15 +131,14 @@ for (j = 0; j < x.length; j++) {
     factor = 2 * mni / td * Math.exp(-Math.pow(xstop/td,2));
     L = factor * ((epni-epco) * int1 + epco * int2) / (4.*3.14*Math.pow(distance,2));
     y[j] = -2.5 * Math.log10(L*wav/c)-48.3;
+    yG[j] = -2.5 * Math.log10(L*wavG/c)-48.3;
+    yR[j] = -2.5 * Math.log10(L*wavR/c)-48.3;
+    yi[j] = -2.5 * Math.log10(L*wavi/c)-48.3;
+    yB[j] = -2.5 * Math.log10(L*wavB/c)-48.3;
     x[j] = (dx*(1+redshift)) * j + T;
 }
 source.change.emit();
 """)
-
-plot = figure(plot_height=400, plot_width=400, title="Super cool blackbody curve thing",
-              tools="crosshair,pan,reset,save,wheel_zoom",
-              x_range=[np.min(photometry_time) - 20, np.max(photometry_time) + 100], y_range=[np.max(photometry_mag), np.min(photometry_mag)])
-
 
 callback2=CustomJS(args=dict(source=source2, plotrange=plot.x_range, plotrange_y=plot.y_range), code="""
 	var sourcedata = source.data;
@@ -140,11 +156,40 @@ fetch(url, {
     var data = myJson[supernovae.value]["photometry"];
     var x = [];
     var y = [];
+    var yG = [];
+    var yR = [];
+    var yi = [];
+    var yB =[];
     for (i = 0; i < data.length; i++) {
     	if (!data[i][4]) {
     	x.push(parseFloat(data[i][0]));
     	y.push(parseFloat(data[i][1]));
+    	if (data[i][3] == "g") {
+    	yG.push(parseFloat(data[i][1]));
     	}
+    	else {
+    	yG.push(NaN);
+    	}
+    	if (data[i][3] == "r") {
+    	yR.push(parseFloat(data[i][1]));
+    	}
+    	else {
+    	yR.push(NaN);
+    	}
+    	if (data[i][3] == "i") {
+    	yi.push(parseFloat(data[i][1]));
+    	}
+    	else {
+    	yi.push(NaN);
+    	}
+    	if (data[i][3] == "B") {
+    	yB.push(parseFloat(data[i][1]));
+    	}
+    	else {
+    	yB.push(NaN);
+    	}
+    	}
+
     } 
     function bouncer(arr) {
     return arr.filter(Boolean);
@@ -153,6 +198,10 @@ fetch(url, {
     y = bouncer(y);
     sourcedata["x"] = x;
     sourcedata["y"] = y;
+    sourcedata["yG"] = yG;
+    sourcedata["yR"] = yR;
+    sourcedata["yi"] = yi;
+    sourcedata["yB"] = yB;
     plotrange.start = Math.min.apply(Math, x);
     plotrange_y.start = Math.max.apply(Math, y);
     plotrange.end  = Math.max.apply(Math, x);
@@ -165,10 +214,15 @@ fetch(url, {
 
 
 plot.line('x', 'y', source=source, line_width=3, line_alpha=0.6)
+plot.line('x', 'yG', source=source, line_width=3, line_alpha=0.6, color="green")
+plot.line('x', 'yR', source=source, line_width=3, line_alpha=0.6, color="red")
+plot.line('x', 'yi', source=source, line_width=3, line_alpha=0.6, color="purple")
+plot.line('x', 'yB', source=source, line_width=3, line_alpha=0.6, color="blue")
 plot.circle('x', 'y', source=source2, line_width=3, line_alpha=0.6)
-#plot.line('x', 'yB', source=source, line_width=3, line_alpha=0.6, color="pink")
-#plot.line('x', 'yr', source=source, line_width=3, line_alpha=0.6, color="orange")
-#plot.line('x', 'yi', source=source, line_width=3, line_alpha=0.6, color="blue")
+plot.circle('x', 'yG', source=source2, size = 5, color="green")
+plot.circle('x', 'yB', source=source2, size = 5, color="blue")
+plot.circle('x', 'yR', source=source2, size = 5, color="red")
+plot.circle('x', 'yi', source=source2, size = 5, color="purple")
 #plot.line('x', 'yV', source=source, line_width=3, line_alpha=0.6, color="turquoise")
 #plot.line('x', 'yU', source=source, line_width=3, line_alpha=0.6, color="purple")
 
@@ -196,9 +250,10 @@ callback.args["fni"] = f_slider
 callback.args["vej"] = v_slider
 callback.args["k"] = k_slider
 callback.args["T"] = T_slider
-
 callback.args["distance"] = lumdist_input
 callback.args["redshift"] = redshift_input
+
+
 
 callback2.args["supernovae"] = text
 
