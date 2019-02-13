@@ -101,8 +101,8 @@ var wav_dyg = 4.64e-5;
 var wav_dyr = 6.58e-5;
 var wav_dyi = 8.06e-5;
 var wav_dyB = 4.45e-5;
-var mni = fni.value;
-mni = mni * m;
+var Ep = Ep.value;
+var tp = tp.value;
 var T = T.value;
 var v = vej.value;
 v = v * Math.pow (10,5);
@@ -110,6 +110,9 @@ var k = k.value;
 var td = Math.sqrt(2. * k * m / (beta * c * v)) / 86400;
 var data = source.data;
 var xstop = 0.0;
+
+var eo = Math.pow(v, 2) * m / 4;
+
 x = data['x'];
 y = data['y'];
 dyg = data['dyg'];
@@ -122,16 +125,13 @@ var redshift = redshift.value;
 redshift = parseFloat(redshift);
 for (j = 0; j < x.length; j++) {
     xstop = j * dx;
-    int1 = numerically_integrate(0,xstop,dx,f1,td);
-    int2 = numerically_integrate(0,xstop,dx,f2,td);
-    factor = 2 * mni / td * Math.exp(-Math.pow(xstop/td,2));
-    L = factor * ((epni-epco) * int1 + epco * int2) / (4.*3.14*Math.pow(distance,2));
+    L = ((2eo * 10e41) / td) * Math.exp(-(Math.pow((x[j], 2)/Math.pow(td, 2))) / (4.*3.14*Math.pow(distance,2));
     y[j] = -2.5 * Math.log10(L*wav/c)-48.3;
     dyg[j] = -2.5 * Math.log10(L*wav_dyg/c)-48.3;
     dyr[j] = -2.5 * Math.log10(L*wav_dyr/c)-48.3;
     dyi[j] = -2.5 * Math.log10(L*wav_dyi/c)-48.3;
     dyB[j] = -2.5 * Math.log10(L*wav_dyB/c)-48.3;
-    console.log(dyB);
+    console.log(L);
     x[j] = (dx*(1+redshift)) * j + T;
 }
 source.change.emit();
@@ -240,8 +240,10 @@ redshift_input = TextInput(title="title", value=str(redshift))
 
 M_slider = Slider(start=0.1, end=10, value=1, step=.1,
                      title="Ejecta Mass", callback=callback)
-f_slider = Slider(start=0.01, end=1.0, value=0.1, step=.01,
-                    title="Nickel Fraction", callback=callback)
+Ep_slider = Slider(start=1, end=10, value=5, step=1,
+                    title="Ep thing", callback=callback)
+tp_slider = Slider(start=1, end=10, value=5, step=1,
+                    title="tp thing", callback=callback)
 v_slider = Slider(start=5000, end=20000, value=10000, step=1000,
                       title="Ejecta Velocity", callback=callback)
 k_slider = Slider(start=0.1, end=0.4, value=0.2, step=.01,
@@ -251,10 +253,11 @@ T_slider = Slider(title="Time", value= arrayoftimes.min() - 10,
                   step= 10,callback=callback)
 
 callback.args["mej"] = M_slider
-callback.args["fni"] = f_slider
 callback.args["vej"] = v_slider
 callback.args["k"] = k_slider
 callback.args["T"] = T_slider
+callback.args["Ep"] = Ep_slider
+callback.args["tp"] = tp_slider
 
 
 callback2.args["TextThing"] = text
@@ -282,7 +285,6 @@ def update_data(attrname, old, new):
 
     # Get the current slider values
     M = M_slider.value * 2.e33
-    f = f_slider.value
     v = v_slider.value * 1.e5
     k = k_slider.value
     t = t_original
@@ -330,13 +332,13 @@ def update_data(attrname, old, new):
 
 
 # Set up layouts and add to document
-inputs = widgetbox(text, M_slider, f_slider, v_slider, k_slider, T_slider)
+inputs = widgetbox(text, M_slider, v_slider, k_slider, T_slider, Ep_slider, tp_slider)
 layout = row(
     plot,
     inputs,
 )
 
-output_file("NewBokeh.html")
+output_file("MagnetarThing.html")
 
 save(plot)
 show(layout)
