@@ -49,96 +49,77 @@ plot = figure(plot_height=400, plot_width=400, title="Super cool blackbody curve
               x_range=[np.min(photometry_time) - 20, np.max(photometry_time) + 100], y_range=[np.max(photometry_mag), np.min(photometry_mag)])
 
 callback=CustomJS(args=dict(source=source, plotrange=plot.x_range), code="""
-
 T.start = plotrange.start;
 T.end = plotrange.end;
 plotrange.change.emit();
 
-function numerically_integrate(a, b, dx, f,td) {
-    
-    // calculate the number of trapezoids
-    n = (b - a) / dx;
-    
-    // define the variable for area
-    Area = 0;
-    
-    //loop to calculate the area of each trapezoid and sum.
-    for (i = 1; i <= n; i++) {
-        //the x locations of the left and right side of each trapezpoid
-        x0 = a + (i-1)*dx;
-        x1 = a + i*dx;
-        
-        // the area of each trapezoid
-        Ai = dx * (f(x0,td) + f(x1,td))/ 2.;
-        
-        // cumulatively sum the areas
-        Area = Area + Ai    
-        
-    } 
-    return Area;
+function numerically_integrate(a, b, dx, f,td,yy) {
+   
+   // calculate the number of trapezoids
+   n = (b - a) / dx;
+   
+   // define the variable for area
+   Area = 0;
+   
+   //loop to calculate the area of each trapezoid and sum.
+   for (i = 1; i <= n; i++) {
+      //the x locations of the left and right side of each trapezpoid
+      x0 = a + (i-1)*dx;
+      x1 = a + i*dx;
+      
+      // the area of each trapezoid
+      Ai = dx * (f(x0,td,yy) + f(x1,td,yy))/ 2.;
+      
+      // cumulatively sum the areas
+      Area = Area + Ai   
+      
+   } 
+   return Area;
 }
 
 
 //define function to be integrated
-function f1(x,td){
-    return x / td * Math.exp(Math.pow(x/td,2)) * Math.exp(-x/8.77);
+function f1(x,td,yy){
+   return Math.exp(Math.pow(x/td,2)) * x/td * 1./Math.pow(1. + yy * x/td,2);
 }
 
-function f2(x,td){
-    return x / td * Math.exp(Math.pow(x/td,2)) * Math.exp(-x/111);
-}
+dx = 0.5;     // width of the trapezoids
 
-dx = 0.5;       // width of the trapezoids
-
-var tni = 8.8;
-var tco = 111.3;
-var epni = 3.9e10;
-var epco = 6.8e9;
+var T = T.value;
 var beta = 13.8;
-var c = 3.0e10;
+var c = 1.0e10;
 var msol = 2e33;
 var m = mej.value;
 m = m * msol;
-var wav = 6e-5;
-var wavG = 4.64e-5;
-var wavR = 6.58e-5;
-var wavi = 8.06e-5;
-var wavB = 4.45e-5;
-var Ep = Ep.value;
-var Tp = Tp.value;
-var T = T.value;
 var v = vej.value;
 v = v * Math.pow (10,5);
+var wav = 6e-5;
 var k = k.value;
+var b = bfield.value;
+var p = pspin.value;
 var td = Math.sqrt(2. * k * m / (beta * c * v)) / 86400;
 var data = source.data;
-var xstop = 0.0;
-x = data['x'];
-y = data['y'];
-yG = data['yG'];
-yR = data['yR'];
-yi = data['yi'];
-yB = data['yB']
-console.log(x);
-console.log(y);
+x = data['x']
+y = data['y']
+var ep = Math.pow(0.1 * p,-2) * (2e50);
+var tp = Math.pow(b,-2) * 1.3 * Math.pow(p*0.1,2) * 365.0;
+var yy = td/tp;
 var distance = distance.value * 3e24;
 var redshift = redshift.value;
-redshift = parseFloat(redshift);
+
+
 for (j = 0; j < x.length; j++) {
     xstop = j * dx;
-    E_knot = m*Math.pow(v,2)/4;
-    td = Math.pow(2*k*m/beta*c*v, (1/2));
-    L =  (((2*E_knot)/td)*Math.exp((-1*Math.pow(x,2)/(Math.pow(td, 2)))) / (4.*3.14*Math.pow(distance,2));
-    console.log(L);
+    int1 = numerically_integrate(0,xstop,dx,f1,td,yy);
+    factor = 2. * ep / (tp * 86400.) * Math.exp(-Math.pow(xstop/td,2));
+    L = factor * int1 / (4.*3.14*Math.pow(distance,2));
     y[j] = -2.5 * Math.log10(L*wav/c)-48.3;
-    yG[j] = -2.5 * Math.log10(L*wavG/c)-48.3;
-    yR[j] = -2.5 * Math.log10(L*wavR/c)-48.3;
-    yi[j] = -2.5 * Math.log10(L*wavi/c)-48.3;
-    yB[j] = -2.5 * Math.log10(L*wavB/c)-48.3;
     x[j] = (dx*(1+redshift)) * j + T;
+    console.log(int1);
 }
 source.change.emit();
 """)
+
 
 #l input L_input = (Ep/Tp) * (1/(1+t/Tp)**2)
 
@@ -246,17 +227,17 @@ k_slider = Slider(start=0.1, end=0.4, value=0.2, step=.01,
 T_slider = Slider(title="Time", value= arrayoftimes.min() - 10,
             start= arrayoftimes.min() - 10, end=arrayoftimes.max() + 10,
                   step= 10,callback=callback)
-Ep_slider = Slider(start=1.0, end=10.0, value=1, step=1.0,
+bfield_slider = Slider(start=1.0, end=10.0, value=5, step=1.0,
                     title="Ep", callback=callback)
-Tp_slider = Slider(start=1.0, end=10.0, value=1, step=1.0,
+pspin_slider = Slider(start=1.0, end=10.0, value=5, step=1.0,
                     title="Tp", callback=callback)
 
 callback.args["mej"] = M_slider
 callback.args["vej"] = v_slider
 callback.args["k"] = k_slider
 callback.args["T"] = T_slider
-callback.args["Ep"] = Ep_slider
-callback.args["Tp"] = Tp_slider
+callback.args["bfield"] = bfield_slider
+callback.args["pspin"] = pspin_slider
 callback.args["distance"] = lumdist_input
 callback.args["redshift"] = redshift_input
 
@@ -335,7 +316,7 @@ def update_data(attrname, old, new):
 
 
 # Set up layouts and add to document
-inputs = widgetbox(text, M_slider, v_slider, k_slider, T_slider, Tp_slider, Ep_slider)
+inputs = widgetbox(text, M_slider, v_slider, k_slider, T_slider, bfield_slider, pspin_slider)
 layout = row(
     plot,
     inputs,
