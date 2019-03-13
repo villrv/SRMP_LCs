@@ -94,6 +94,10 @@ m = m * msol;
 var v = vej.value;
 v = v * Math.pow (10,5);
 var wav = 6e-5;
+var wavG = 4.64e-5;
+var wavR = 6.58e-5;
+var wavi = 8.06e-5;
+var wavB = 4.45e-5;
 var k = k.value;
 var b = bfield.value;
 var p = pspin.value;
@@ -101,6 +105,10 @@ var td = Math.sqrt(2. * k * m / (beta * c * v)) / 86400;
 var data = source.data;
 x = data['x']
 y = data['y']
+yG = data['yG'];
+yR = data['yR'];
+yi = data['yi'];
+yB = data['yB'];
 var ep = Math.pow(0.1 * p,-2) * (2e50);
 var tp = Math.pow(b,-2) * 1.3 * Math.pow(p*0.1,2) * 365.0;
 var yy = td/tp;
@@ -114,6 +122,12 @@ for (j = 0; j < x.length; j++) {
     factor = 2. * ep / (tp * 86400.) * Math.exp(-Math.pow(xstop/td,2));
     L = factor * int1 / (4.*3.14*Math.pow(distance,2));
     y[j] = -2.5 * Math.log10(L*wav/c)-48.3;
+
+    yG[j] = -2.5 * Math.log10(L*wavG/c)-48.3;
+    yR[j] = -2.5 * Math.log10(L*wavR/c)-48.3;
+    yi[j] = -2.5 * Math.log10(L*wavi/c)-48.3;
+    yB[j] = -2.5 * Math.log10(L*wavB/c)-48.3;
+
     x[j] = (dx*(1+redshift)) * j + T;
     console.log(int1);
 }
@@ -227,10 +241,10 @@ k_slider = Slider(start=0.1, end=0.4, value=0.2, step=.01,
 T_slider = Slider(title="Time", value= arrayoftimes.min() - 10,
             start= arrayoftimes.min() - 10, end=arrayoftimes.max() + 10,
                   step= 10,callback=callback)
-bfield_slider = Slider(start=1.0, end=10.0, value=5, step=1.0,
-                    title="Ep", callback=callback)
+bfield_slider = Slider(start=0.1, end=1., value=.5, step=0.1,
+                    title="Bfield", callback=callback)
 pspin_slider = Slider(start=1.0, end=10.0, value=5, step=1.0,
-                    title="Tp", callback=callback)
+                    title="Pspin", callback=callback)
 
 callback.args["mej"] = M_slider
 callback.args["vej"] = v_slider
