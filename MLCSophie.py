@@ -118,7 +118,7 @@ y = data['y'];
 yG = data['yG'];
 yR = data['yR'];
 yi = data['yi'];
-yB = data['yB']
+yB = data['yB'];
 console.log(x);
 console.log(y);
 var distance = distance.value * 3e24;
