@@ -92,14 +92,22 @@ m = m * msol;
 var v = vej.value;
 v = v * Math.pow (10,5);
 var wav = 6e-5;
+var wavB = 4.45e-5;
+var wavg = 4.64e-5;
+var wavi = 8.06e-5;
+var wavr = 6.58e-5;
 var T = T.value;
 var k = k.value;
 var b = bfield.value;
 var p = pspin.value;
 var td = Math.sqrt(2. * k * m / (beta * c * v)) / 86400;
 var data = source.data;
-x = data['x']
-y = data['y']
+x = data['x'];
+y = data['y'];
+dyg = data['dyg'];
+dyr = data['dyr'];
+dyi = data['dyi'];
+dyB = data['dyB'];
 var ep = Math.pow(0.1 * p,-2) * (2e50);
 var tp = Math.pow(b,-2) * 1.3 * Math.pow(p*0.1,2) * 365.0;
 var yy = td/tp;
@@ -113,6 +121,10 @@ for (j = 0; j < x.length; j++) {
     L = factor * int1 / (4.*3.14*Math.pow(distance,2));
     x[j] = (dx*(1+redshift)) * j + T;
     y[j] = -2.5 * Math.log10(L*wav/c)-48.3;
+    dyg[j] = -2.5 * Math.log10(L*wavg/c)-48.3;
+    dyr[j] = -2.5 * Math.log10(L*wavr/c)-48.3;
+    dyi[j] = -2.5 * Math.log10(L*wavi/c)-48.3;
+    dyB[j] = -2.5 * Math.log10(L*wavB/c)-48.3;
 }
 source.change.emit();
 console.log(y);
@@ -209,7 +221,7 @@ plot.circle('x', 'dyB', source=source2, line_width=3, line_alpha=0.6, color="tur
 
 plot.line('x', 'dyg', source=source, line_width=3, line_alpha=0.6, color="purple")
 plot.line('x', 'dyr', source=source, line_width=3, line_alpha=0.6, color="darkseagreen")
-plot.line('x', 'dyi', source=source, line_width=3, line_alpha=0.6, color="aliceblue")
+plot.line('x', 'dyi', source=source, line_width=3, line_alpha=0.6, color="mediumturquoise")
 plot.line('x', 'dyB', source=source, line_width=3, line_alpha=0.6, color="#e34a33")
 
 arrayoftimes = np.array(photometry_time)
@@ -221,7 +233,7 @@ redshift_input = TextInput(title="title", value=str(redshift))
 
 M_slider = Slider(start=0.1, end=10, value=1, step=.1,
                      title="Ejecta Mass", callback=callback)
-bfield_slider = Slider(start=1, end=10, value=5, step=1,
+bfield_slider = Slider(start=0.1, end=1, value=0.5, step=0.1,
                     title="B thing", callback=callback)
 pspin_slider = Slider(start=1, end=10, value=5, step=1,
                     title="Pspin thing", callback=callback)
