@@ -51,95 +51,76 @@ callback=CustomJS(args=dict(source=source,plotrange = plot.x_range), code="""
 T.start = plotrange.start;
 T.end = plotrange.end;
 plotrange.change.emit();
-function numerically_integrate(a, b, dx, f,td) {
-    
-    // calculate the number of trapezoids
-    n = (b - a) / dx;
-    
-    // define the variable for area
-    Area = 0;
-    
-    //loop to calculate the area of each trapezoid and sum.
-    for (i = 1; i <= n; i++) {
-        //the x locations of the left and right side of each trapezpoid
-        x0 = a + (i-1)*dx;
-        x1 = a + i*dx;
-        
-        // the area of each trapezoid
-        Ai = dx * (f(x0,td) + f(x1,td))/ 2.;
-        
-        // cumulatively sum the areas
-        Area = Area + Ai    
-        
-    } 
-    return Area;
+
+function numerically_integrate(a, b, dx, f,td,yy) {
+   
+   // calculate the number of trapezoids
+   n = (b - a) / dx;
+   
+   // define the variable for area
+   Area = 0;
+   
+   //loop to calculate the area of each trapezoid and sum.
+   for (i = 1; i <= n; i++) {
+      //the x locations of the left and right side of each trapezpoid
+      x0 = a + (i-1)*dx;
+      x1 = a + i*dx;
+      
+      // the area of each trapezoid
+      Ai = dx * (f(x0,td,yy) + f(x1,td,yy))/ 2.;
+      
+      // cumulatively sum the areas
+      Area = Area + Ai   
+      
+   } 
+   return Area;
 }
 
 
 //define function to be integrated
-function f1(x,td){
-    return x / td * Math.exp(Math.pow(x/td,2)) * Math.exp(-x/8.77);
+function f1(x,td,yy){
+   return Math.exp(Math.pow(x/td,2)) * x/td * 1./Math.pow(1. + yy * x/td,2);
 }
 
-function f2(x,td){
-    return x / td * Math.exp(Math.pow(x/td,2)) * Math.exp(-x/111);
-}
+dx = 0.5;     // width of the trapezoids
 
-dx = 0.5;       // width of the trapezoids
-
-var tni = 8.8;
-var tco = 111.3;
-var epni = 3.9e10;
-var epco = 6.8e9;
 var beta = 13.8;
 var c = 1.0e10;
 var msol = 2e33;
 var m = mej.value;
 m = m * msol;
-var wav = 6e-5;
-var wav_dyg = 4.64e-5;
-var wav_dyr = 6.58e-5;
-var wav_dyi = 8.06e-5;
-var wav_dyB = 4.45e-5;
-var Ep = Ep.value;
-var tp = tp.value;
-var T = T.value;
 var v = vej.value;
 v = v * Math.pow (10,5);
+var wav = 6e-5;
+var T = T.value;
 var k = k.value;
+var b = bfield.value;
+var p = pspin.value;
 var td = Math.sqrt(2. * k * m / (beta * c * v)) / 86400;
 var data = source.data;
-var xstop = 0.0;
-
-var eo = Math.pow(v, 2) * m / 4;
-
-x = data['x'];
-y = data['y'];
-dyg = data['dyg'];
-dyr = data['dyr'];
-dyi = data['dyi'];
-dyB = data['dyB'];
+x = data['x']
+y = data['y']
+var ep = Math.pow(0.1 * p,-2) * (2e50);
+var tp = Math.pow(b,-2) * 1.3 * Math.pow(p*0.1,2) * 365.0;
+var yy = td/tp;
 
 var distance = distance.value * 3e24;
 var redshift = redshift.value;
-redshift = parseFloat(redshift);
 for (j = 0; j < x.length; j++) {
     xstop = j * dx;
-    L = ((2eo * 10e41) / td) * Math.exp(-(Math.pow((x[j], 2)/Math.pow(td, 2))) / (4.*3.14*Math.pow(distance,2));
-    y[j] = -2.5 * Math.log10(L*wav/c)-48.3;
-    dyg[j] = -2.5 * Math.log10(L*wav_dyg/c)-48.3;
-    dyr[j] = -2.5 * Math.log10(L*wav_dyr/c)-48.3;
-    dyi[j] = -2.5 * Math.log10(L*wav_dyi/c)-48.3;
-    dyB[j] = -2.5 * Math.log10(L*wav_dyB/c)-48.3;
-    console.log(L);
+    int1 = numerically_integrate(0,xstop,dx,f1,td,yy);
+    factor = 2. * ep / (tp * 86400.) * Math.exp(-Math.pow(xstop/td,2));
+    L = factor * int1 / (4.*3.14*Math.pow(distance,2));
     x[j] = (dx*(1+redshift)) * j + T;
+    y[j] = -2.5 * Math.log10(L*wav/c)-48.3;
 }
 source.change.emit();
+console.log(y);
 """)
 
 
 callback2=CustomJS(args=dict(source=source2, plotrange = plot.x_range, yplotrange = plot.y_range), code="""
-	const url = 'https://astrocats.space/api/' + TextThing.value + '/photometry/time+magnitude+e_magnitude+band+upperlimit';
+    const url = 'https://astrocats.space/api/' + TextThing.value + '/photometry/time+magnitude+e_magnitude+band+upperlimit';
     var sourcedata = source.data;
 fetch(url, {
   method: "GET",
@@ -205,7 +186,7 @@ fetch(url, {
     sourcedata["dyi"] = dyi;
     sourcedata["dyB"] = dyB;
     plotrange.start = Math.min(x);
-	plotrange.start = Math.min.apply(Math, x);
+    plotrange.start = Math.min.apply(Math, x);
     yplotrange.start = Math.max.apply(Math, y);
     plotrange.end  = Math.max.apply(Math, x);
     yplotrange.end = Math.min.apply(Math, y);
@@ -214,7 +195,7 @@ fetch(url, {
     source.change.emit();
 
   })
-	""")
+    """)
 
 
 plot.line('x', 'y', source=source, line_width=3, line_alpha=0.6)
@@ -240,10 +221,10 @@ redshift_input = TextInput(title="title", value=str(redshift))
 
 M_slider = Slider(start=0.1, end=10, value=1, step=.1,
                      title="Ejecta Mass", callback=callback)
-Ep_slider = Slider(start=1, end=10, value=5, step=1,
-                    title="Ep thing", callback=callback)
-tp_slider = Slider(start=1, end=10, value=5, step=1,
-                    title="tp thing", callback=callback)
+bfield_slider = Slider(start=1, end=10, value=5, step=1,
+                    title="B thing", callback=callback)
+pspin_slider = Slider(start=1, end=10, value=5, step=1,
+                    title="Pspin thing", callback=callback)
 v_slider = Slider(start=5000, end=20000, value=10000, step=1000,
                       title="Ejecta Velocity", callback=callback)
 k_slider = Slider(start=0.1, end=0.4, value=0.2, step=.01,
@@ -256,8 +237,8 @@ callback.args["mej"] = M_slider
 callback.args["vej"] = v_slider
 callback.args["k"] = k_slider
 callback.args["T"] = T_slider
-callback.args["Ep"] = Ep_slider
-callback.args["tp"] = tp_slider
+callback.args["bfield"] = bfield_slider
+callback.args["pspin"] = pspin_slider
 
 
 callback2.args["TextThing"] = text
@@ -267,17 +248,17 @@ callback.args["redshift"] = redshift_input
 
 count = 0
 # for x in photometry_time:
-# 	if photometry_band[count] == "r":
-# 		plot.circle(x, photometry_mag[count], size=5, color="orange", alpha=0.5)
-# 	elif photometry_band[count] == "i":
-# 		plot.circle(x, photometry_mag[count], size=5, color="blue", alpha=0.5)
-# 	elif photometry_band[count] == "g":
-# 		plot.circle(x, photometry_mag[count], size=5, color="turquoise", alpha=0.5)
-# 	elif photometry_band[count] == "z":
-# 		plot.circle(x, photometry_mag[count], size=5, color="purple", alpha=0.5)
-# 	elif photometry_band[count] == "B":
-# 		plot.circle(x, photometry_mag[count], size=5, color="pink", alpha=0.5)
-# 	count += 1
+#   if photometry_band[count] == "r":
+#       plot.circle(x, photometry_mag[count], size=5, color="orange", alpha=0.5)
+#   elif photometry_band[count] == "i":
+#       plot.circle(x, photometry_mag[count], size=5, color="blue", alpha=0.5)
+#   elif photometry_band[count] == "g":
+#       plot.circle(x, photometry_mag[count], size=5, color="turquoise", alpha=0.5)
+#   elif photometry_band[count] == "z":
+#       plot.circle(x, photometry_mag[count], size=5, color="purple", alpha=0.5)
+#   elif photometry_band[count] == "B":
+#       plot.circle(x, photometry_mag[count], size=5, color="pink", alpha=0.5)
+#   count += 1
 
 text.on_change('value', update_title)
 
@@ -332,7 +313,7 @@ def update_data(attrname, old, new):
 
 
 # Set up layouts and add to document
-inputs = widgetbox(text, M_slider, v_slider, k_slider, T_slider, Ep_slider, tp_slider)
+inputs = widgetbox(text, M_slider, v_slider, k_slider, T_slider, bfield_slider, pspin_slider)
 layout = row(
     plot,
     inputs,
