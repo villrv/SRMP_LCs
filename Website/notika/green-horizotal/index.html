@@ -379,7 +379,11 @@
                                 <div class="bk-root"> 
         <div class="bk-root" id="1ab37ee0-d531-4bbb-8a4f-fab8195d7a34"></div>
     </div>   
-        <iframe id="iframe" src="./NewBokehMagnetar.html"width=800px height=450px></iframe>
+        <iframe id="iframe" src="MagnetarThing.html"width=800px height=450px></iframe>
+
+<p>Click the "Tryit" button to hide the first H1 element in the iframe (another document).</p>
+
+
                             </div>
                         </div>
                         
@@ -391,6 +395,15 @@
                             <h2>The Sliders Will Go Here</h2>
                             <p>Select below which supernovae model you would like to use.</p>
                         </div>
+                        <button onclick="myFunction()">Try it</button>
+
+                        <script>
+                        function myFunction() {
+                            var iframe = document.getElementById("MagnetarThing.html");
+                            var elmnt = iframe.contentWindow.document.getElementsByTagName("H1")[0];
+                        elmnt.style.display = "none";
+                        }
+                        </script>
 						  <button type="button">Supernovae model #1</button>
                             function setURL(url){
                             document.getElementById('iframe').src = url;}
