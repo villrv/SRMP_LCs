@@ -381,7 +381,7 @@
     </div>   
         <iframe id="iframe" src="MagnetarThing.html"width=800px height=450px></iframe>
 
-<p>Click the "Tryit" button to hide the first H1 element in the iframe (another document).</p>
+
 
 
                             </div>
@@ -392,22 +392,28 @@
                 <div class="col-lg-3 col-md-4 col-sm-5 col-xs-12">
                     <div class="statistic-right-area notika-shadow mg-tb-30 sm-res-mg-t-0">
                         <div class="past-day-statis">
-                            <h2>The Sliders Will Go Here</h2>
+                            <h2>Supernovae Models</h2>
                             <p>Select below which supernovae model you would like to use.</p>
                         </div>
-                        <button onclick="myFunction()">Try it</button>
 
+
+
+                        <div class="loadiframe">
+                        <button type="button" id="button1">Supernovae model #1</button>
+                        </div>
                         <script>
-                        function myFunction() {
-                            var iframe = document.getElementById("MagnetarThing.html");
-                            var elmnt = iframe.contentWindow.document.getElementsByTagName("H1")[0];
-                        elmnt.style.display = "none";
+                        function iframeChange() {
+                            var buttons = document.querySelector(".loadiframe");
+                            var frame = document.getElementById('iframe');
+                            buttons.addEventListener("click", function (e) {
+                                iframe.src = "NewBokehMagnetar.html";
+                            });
                         }
+                        window.onload = iframeChange;
                         </script>
-						  <button type="button">Supernovae model #1</button>
-                            function setURL(url){
-                            document.getElementById('iframe').src = url;}
-                            <input type="button" onclick="setURL('BokehMagnetar.html')" />
+
+
+
 
                           <button type="button">Supernovae model #2</button>
                             </div>
