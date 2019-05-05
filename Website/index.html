@@ -241,7 +241,7 @@
     <div class="notika-status-area">
         <div class="container">
             <div class="row">
-                <div class="col-lg-6 col-md-12 col-sm-12 col-xs-24">
+                <!-- <div class="col-lg-6 col-md-12 col-sm-12 col-xs-24">
                     <div class="wb-traffic-inner notika-shadow sm-res-mg-t-100 tb-res-mg-t-100">
                         <div class="website-traffic-ctn">
                             <h2><span ><font color="88C6AD">Insert Supernova Name</font></span></h2>
@@ -250,12 +250,12 @@
   							 <button type="button">Go!</button> 
                         </div>
                     </div>
-                </div>
-                <div class="col-lg-6 col-md-12 col-sm-12 col-xs-24">
+                </div> -->
+                <div class="col-lg-12 col-md-12 col-sm-12 col-xs-48">
                     <div class="wb-traffic-inner notika-shadow sm-res-mg-t-100 tb-res-mg-t-100">
                         <div class="website-traffic-ctn">
                             <h2><span><font color="88C6AD">Best Fit Graph</font></span></h2>
-                            <font color="#88C6AD">Once you have fit the graph to the best of your ability, click this button to have the best fit graph generated: </font>
+                            <font color="#88C6AD">Once you have fit the graph to the best of your ability, click this button to have the best fit graph generated. </font>
                             <button type="button">Get Best Fit!</button>
                         </div>
                        
@@ -298,8 +298,29 @@
 
 
 
-                        <div class="loadiframe">
-                        <button type="button" id="button1">Magnetar model</button>
+                         <div class="loadiframebutton2">
+                        <button type="button" id="button2">Nickel Decay Model</button>
+                        </div>
+                         <div class="loadiframebutton">
+                        <button type="button" id="button">Magnetar Model</button>
+                        </div>
+                        <script>
+                        function iframeChangebutton2() {
+                            var buttons2 = document.querySelector(".loadiframebutton2");
+                            var frame = document.getElementById('iframe');
+                            buttons2.addEventListener("click", function (e) {
+                                frame.src = "Nickel56.html";}
+                            );
+                            var buttons = document.querySelector(".loadiframebutton");
+                            buttons.addEventListener("click", function (e) {
+                                frame.src = "Magnetar.html";
+                            });
+                        }
+                        window.onload = iframeChangebutton2;
+                        </script>
+
+                        <!-- <div class="loadiframe">
+                        <button type="button" id="button1">Magnetar Model</button>
                         </div>
                         <script>
                         function iframeChange() {
@@ -310,21 +331,7 @@
                             });
                         }
                         window.onload = iframeChange;
-                        </script>
-
-                         <div class="loadiframebutton2">
-                        <button type="button" id="button2">Nickel Decay Model</button>
-                        </div>
-                        <script>
-                        function iframeChangebutton2() {
-                            var buttons = document.querySelector(".loadiframebutton2");
-                            var frame = document.getElementById('iframe');
-                            buttons.addEventListener("click", function (e) {
-                                iframe.src = "Nickel56.html";
-                            });
-                        }
-                        window.onload = iframeChangebutton2;
-                        </script>
+                        </script> -->
 
 
 
