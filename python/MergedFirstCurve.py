@@ -14,6 +14,7 @@ from BlackbodyFunction import blackbody
 from QueryDistance import querry_distance
 from bokeh.models.sources import AjaxDataSource
 
+
 photometry_time, photometry_mag, photometry_sigma, photometry_band, detection = querry_single_osc("DES17C1ffz")
 
 lumdist, redshift = querry_distance("DES17C1ffz")
@@ -233,7 +234,7 @@ plot.line('x', 'dyB', source=source, line_width=3, line_alpha=0.6, color="#e34a3
 
 arrayoftimes = np.array(photometry_time)
 
-text = TextInput(title="title", value='my parabola', callback = callback2)
+text = TextInput(title="Insert the name of the supernova here:", value='my parabola', callback = callback2)
 lumdist_input = TextInput(title="title", value=str(lumdist))
 redshift_input = TextInput(title="title", value=str(redshift))
 
