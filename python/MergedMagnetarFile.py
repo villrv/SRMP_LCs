@@ -42,7 +42,7 @@ source2 = ColumnDataSource(data=dict(x=x, y=y, dyg=y, dyr=y, dyi=y, dyB=y))
 
 
 
-plot = figure(plot_height=400, plot_width=400, title="Super cool blackbody curve thing",
+plot = figure(plot_height=400, plot_width=400, title="Magnetar Model",
               tools="crosshair,pan,reset,save,wheel_zoom",
               x_range=[np.min(photometry_time) - 20, np.max(photometry_time) + 100], y_range=[np.max(photometry_mag), np.min(photometry_mag)])
 
@@ -226,22 +226,22 @@ plot.line('x', 'dyB', source=source, line_width=3, line_alpha=0.6, color="#e34a3
 
 arrayoftimes = np.array(photometry_time)
 
-text = TextInput(title="title", value='my parabola', callback = callback2)
+text = TextInput(title="Insert the name of the supernova here:", value='', callback = callback2)
 lumdist_input = TextInput(title="title", value=str(lumdist))
 redshift_input = TextInput(title="title", value=str(redshift))
 
 
 M_slider = Slider(start=0.1, end=10, value=1, step=.1,
-                     title="Ejecta Mass", callback=callback)
+                     title="Ejecta Mass (solar mass)", callback=callback)
 bfield_slider = Slider(start=0.1, end=1, value=0.5, step=0.1,
-                    title="B thing", callback=callback)
+                    title="Magnetic Field (10^14g)", callback=callback)
 pspin_slider = Slider(start=1, end=10, value=5, step=1,
-                    title="Pspin thing", callback=callback)
+                    title="Spin Period (ms)", callback=callback)
 v_slider = Slider(start=5000, end=20000, value=10000, step=1000,
-                      title="Ejecta Velocity", callback=callback)
+                      title="Ejecta Velocity (km/s)", callback=callback)
 k_slider = Slider(start=0.1, end=0.4, value=0.2, step=.01,
-                       title="Opacity", callback=callback)
-T_slider = Slider(title="Time", value= arrayoftimes.min() - 10,
+                       title="Opacity (cm^2/g)", callback=callback)
+T_slider = Slider(title="Time (days)", value= arrayoftimes.min() - 10,
             start= arrayoftimes.min() - 10, end=arrayoftimes.max() + 10,
                   step= 10,callback=callback)
 
