@@ -35,12 +35,22 @@ integrand = (t/td)*(np.exp(t**2/td**2))*(np.exp(-t/tn))
 my_int = integrate.cumtrapz(t,integrand, initial = 0)
 L = ((2*M*f)/(td*24*60*60)) * (np.exp(-t**2)/td**2) * E * my_int
 
+filt_data = np.loadtxt('./filters.dat',delimiter=',',dtype='str')
 x = t
-y = L
+y = np.zeros((len(L),np.size(filt_data,axis=0)))
+column_source = dict(zip(filt_data[:,0], y.T),x=x,y=y)
+color_dict = dict(zip(filt_data[:,0], filt_data[:,2]))
+for thing in color_dict:
+    color_dict[thing] = [color_dict[thing]]
 
-source = ColumnDataSource(data=dict(x=x, y=y, dyg=y, dyr=y, dyi=y, dyB=y))
-source2 = ColumnDataSource(data=dict(x=x, y=y, dyg=y, dyr=y, dyi=y, dyB=y))
+wv_dict = dict(zip(filt_data[:,0], filt_data[:,1]))
+for thing in wv_dict:
+    wv_dict[thing] = [wv_dict[thing]]
 
+source = ColumnDataSource(data=column_source)
+source2 = ColumnDataSource(data=column_source)
+color_source = ColumnDataSource(data=color_dict)
+wave_source = ColumnDataSource(data=wv_dict)
 
 
 plot = figure(plot_height=400, plot_width=400, title="Super cool blackbody curve thing",
@@ -48,7 +58,7 @@ plot = figure(plot_height=400, plot_width=400, title="Super cool blackbody curve
               x_range=[np.min(photometry_time) - 20, np.max(photometry_time) + 100], y_range=[np.max(photometry_mag), np.min(photometry_mag)])
 
 
-callback=CustomJS(args=dict(source=source,plotrange = plot.x_range), code="""
+callback=CustomJS(args=dict(source=source,plotrange = plot.x_range,cd = color_source, wd = wave_source), code="""
 T.start = plotrange.start;
 T.end = plotrange.end;
 plotrange.change.emit();
@@ -113,10 +123,6 @@ var data = source.data;
 var xstop = 0.0;
 x = data['x'];
 y = data['y'];
-dyg = data['dyg'];
-dyr = data['dyr'];
-dyi = data['dyi'];
-dyB = data['dyB'];
 
 var distance = distance.value * 3e24;
 var redshift = redshift.value;
@@ -128,19 +134,25 @@ for (j = 0; j < x.length; j++) {
     factor = 2 * mni / td * Math.exp(-Math.pow(xstop/td,2));
     L = factor * ((epni-epco) * int1 + epco * int2) / (4.*3.14*Math.pow(distance,2));
     y[j] = -2.5 * Math.log10(L*wav/c)-48.3;
-    dyg[j] = -2.5 * Math.log10(L*wav_dyg/c)-48.3;
-    dyr[j] = -2.5 * Math.log10(L*wav_dyr/c)-48.3;
-    dyi[j] = -2.5 * Math.log10(L*wav_dyi/c)-48.3;
-    dyB[j] = -2.5 * Math.log10(L*wav_dyB/c)-48.3;
-    console.log(dyB);
     x[j] = (dx*(1+redshift)) * j + T;
 }
-source.change.emit();
+for(key in cd.data) {
+ y2 = data[key];
+   for (j = 0; j < x.length; j++) {
+    xstop = j * dx;
+    int1 = numerically_integrate(0,xstop,dx,f1,td);
+    int2 = numerically_integrate(0,xstop,dx,f2,td);
+    factor = 2 * mni / td * Math.exp(-Math.pow(xstop/td,2));
+    L = factor * ((epni-epco) * int1 + epco * int2) / (4.*3.14*Math.pow(distance,2));
+    y2[j] = -2.5 * Math.log10(L*wd.data[key]/c)-48.3;
+}
+source.change.emit(); 
+    }
 """)
 
 
-callback2=CustomJS(args=dict(source=source2, plotrange = plot.x_range, yplotrange = plot.y_range), code="""
-	const url = 'https://astrocats.space/api/' + TextThing.value + '/photometry/time+magnitude+e_magnitude+band+upperlimit';
+callback2=CustomJS(args=dict(source=source2, plotrange = plot.x_range, yplotrange = plot.y_range,cd = color_source, wd = wave_source), code="""
+    const url = 'https://astrocats.space/api/' + TextThing.value + '/photometry/time+magnitude+e_magnitude+band+upperlimit';
     var sourcedata = source.data;
 fetch(url, {
   method: "GET",
@@ -153,42 +165,28 @@ fetch(url, {
   })
   .then(function(myJson) {
     var data = (myJson[TextThing.value]["photometry"]);
+
+    for (key in cd.data){
+        var yspec = []
+        for (i = 0; i < data.length; i++){
+            if (data[i][3] == key){
+                yspec.push(parseFloat(data[i][1]));
+                }else{
+                yspec.push(NaN);
+                }
+            }
+        sourcedata[key] = yspec;
+        source.change.emit();
+        }
+    
+    
     var x = [];
     var y = [];
-    var dyg = [];
-    var dyr = [];
-    var dyi = [];
-    var dyB = [];
-
-
     for (i = 0; i < data.length; i++){
-    if (!data[i][4]){
-    x.push(parseFloat(data[i][0]));
-    y.push(parseFloat(data[i][1]));
-    if (data[i][3] == "g"){
-    dyg.push(parseFloat(data[i][1]));
-    }else{
-    dyg.push(NaN);
-    }
-
-    if (data[i][3] == "r"){
-    dyr.push(parseFloat(data[i][1]));
-    }else{
-    dyr.push(NaN);
-    }
-
-    if (data[i][3] == "i"){
-    dyi.push(parseFloat(data[i][1]));
-    }else{
-    dyi.push(NaN);
-    }
-
-    if (data[i][3] == "B"){
-    dyB.push(parseFloat(data[i][1]));
-    }else{
-    dyB.push(NaN);
-    }
-    }
+        if (!data[i][4]){
+        x.push(parseFloat(data[i][0]));
+        y.push(parseFloat(data[i][1]));
+        }
     }
 
     function bouncer(arr){
@@ -201,12 +199,8 @@ fetch(url, {
 
     sourcedata["x"] = x;
     sourcedata["y"] = y;
-    sourcedata["dyg"] = dyg;
-    sourcedata["dyr"] = dyr;
-    sourcedata["dyi"] = dyi;
-    sourcedata["dyB"] = dyB;
     plotrange.start = Math.min(x);
-	plotrange.start = Math.min.apply(Math, x);
+    plotrange.start = Math.min.apply(Math, x);
     yplotrange.start = Math.max.apply(Math, y);
     plotrange.end  = Math.max.apply(Math, x);
     yplotrange.end = Math.min.apply(Math, y);
@@ -215,22 +209,18 @@ fetch(url, {
     source.change.emit();
 
   })
-	""")
+    """)
 
 
 plot.line('x', 'y', source=source, line_width=3, line_alpha=0.6)
+for i,filt in enumerate(filt_data[:,0]):
+    plot.line(x='x', y=filt, source=source, line_width=3, line_alpha=0.6, 
+        color=filt_data[i,2])
 plot.circle('x', 'y', source=source2)
+for i,filt in enumerate(filt_data[:,0]):
+    plot.circle(x='x', y=filt, source=source2, line_width=3, line_alpha=0.6, 
+        color=filt_data[i,2])
 
-plot.circle('x', 'dyg', source=source2, line_width=3, line_alpha=0.6, color="pink")
-plot.circle('x', 'dyr', source=source2, line_width=3, line_alpha=0.6, color="orange")
-plot.circle('x', 'dyi', source=source2, line_width=3, line_alpha=0.6, color="blue")
-plot.circle('x', 'dyB', source=source2, line_width=3, line_alpha=0.6, color="turquoise")
-# plot.circle('x', 'yU', source=source2, line_width=3, line_alpha=0.6, color="purple")
-
-plot.line('x', 'dyg', source=source, line_width=3, line_alpha=0.6, color="purple")
-plot.line('x', 'dyr', source=source, line_width=3, line_alpha=0.6, color="darkseagreen")
-plot.line('x', 'dyi', source=source, line_width=3, line_alpha=0.6, color="aliceblue")
-plot.line('x', 'dyB', source=source, line_width=3, line_alpha=0.6, color="#e34a33")
 
 arrayoftimes = np.array(photometry_time)
 

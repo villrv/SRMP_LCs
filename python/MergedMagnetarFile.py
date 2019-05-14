@@ -37,9 +37,22 @@ L = ((2*M*f)/(td*24*60*60)) * (np.exp(-t**2)/td**2) * E * my_int
 x = t
 y = L
 
-source = ColumnDataSource(data=dict(x=x, y=y, dyg=y, dyr=y, dyi=y, dyB=y))
-source2 = ColumnDataSource(data=dict(x=x, y=y, dyg=y, dyr=y, dyi=y, dyB=y))
+filt_data = np.loadtxt('./filters.dat',delimiter=',',dtype='str')
+x = t
+y = np.zeros((len(L),np.size(filt_data,axis=0)))
+column_source = dict(zip(filt_data[:,0], y.T),x=x,y=y)
+color_dict = dict(zip(filt_data[:,0], filt_data[:,2]))
+for thing in color_dict:
+    color_dict[thing] = [color_dict[thing]]
 
+wv_dict = dict(zip(filt_data[:,0], filt_data[:,1]))
+for thing in wv_dict:
+    wv_dict[thing] = [wv_dict[thing]]
+
+source = ColumnDataSource(data=column_source)
+source2 = ColumnDataSource(data=column_source)
+color_source = ColumnDataSource(data=color_dict)
+wave_source = ColumnDataSource(data=wv_dict)
 
 
 plot = figure(plot_height=400, plot_width=400, title="Magnetar Model",
@@ -47,12 +60,12 @@ plot = figure(plot_height=400, plot_width=400, title="Magnetar Model",
               x_range=[np.min(photometry_time) - 20, np.max(photometry_time) + 100], y_range=[np.max(photometry_mag), np.min(photometry_mag)])
 
 
-callback=CustomJS(args=dict(source=source,plotrange = plot.x_range), code="""
+callback=CustomJS(args=dict(source=source,plotrange = plot.x_range,cd = color_source, wd = wave_source), code="""
 T.start = plotrange.start;
 T.end = plotrange.end;
 plotrange.change.emit();
 
-function numerically_integrate(a, b, dx, f,td,yy) {
+function numerically_integrate(a, b, dx, f,td,tp) {
    
    // calculate the number of trapezoids
    n = (b - a) / dx;
@@ -67,7 +80,7 @@ function numerically_integrate(a, b, dx, f,td,yy) {
       x1 = a + i*dx;
       
       // the area of each trapezoid
-      Ai = dx * (f(x0,td,yy) + f(x1,td,yy))/ 2.;
+      Ai = dx * (f(x0,td,tp) + f(x1,td,tp))/ 2.;
       
       // cumulatively sum the areas
       Area = Area + Ai   
@@ -78,25 +91,26 @@ function numerically_integrate(a, b, dx, f,td,yy) {
 
 
 //define function to be integrated
-function f1(x,td,yy){
-   return Math.exp(Math.pow(x/td,2)) * x/td * 1./Math.pow(1. + yy * x/td,2);
+function f1(x,td,tp){
+   return Math.exp(Math.pow(x/td,2)) * x/td / Math.pow(1. + (2.*x/tp),2);
 }
 
-dx = 0.5;     // width of the trapezoids
+dx = .5;     // width of the trapezoids
 
 var beta = 13.8;
-var c = 1.0e10;
+var c = 3.0e10;
 var msol = 2e33;
 var m = mej.value;
 m = m * msol;
 var v = vej.value;
-v = v * Math.pow (10,5);
-var wav = 6e-5;
+v = v * Math.pow(10,5);
+var wav = 6.0e-5;
 var wavB = 4.45e-5;
 var wavg = 4.64e-5;
 var wavi = 8.06e-5;
 var wavr = 6.58e-5;
 var T = T.value;
+var kg = .06;
 var k = k.value;
 var b = bfield.value;
 var p = pspin.value;
@@ -104,34 +118,41 @@ var td = Math.sqrt(2. * k * m / (beta * c * v)) / 86400;
 var data = source.data;
 x = data['x'];
 y = data['y'];
-dyg = data['dyg'];
-dyr = data['dyr'];
-dyi = data['dyi'];
-dyB = data['dyB'];
-var ep = Math.pow(0.1 * p,-2) * (2e50);
-var tp = Math.pow(b,-2) * 1.3 * Math.pow(p*0.1,2) * 365.0;
+var ep = Math.pow(p,-2) * 2.6e52;
+var tp = 2.6e5 * Math.pow(b,-2)*Math.pow(p,2)/86400;
 var yy = td/tp;
+var A = 3. * kg * m / (3.14 * 4. * Math.pow(v,2))/Math.pow(86400.,2)
 
-var distance = distance.value * 3e24;
+var distance = parseFloat(distance.value) * 3e24;
 var redshift = redshift.value;
+redshift = parseFloat(redshift);
+
 for (j = 0; j < x.length; j++) {
     xstop = j * dx;
-    int1 = numerically_integrate(0,xstop,dx,f1,td,yy);
-    factor = 2. * ep / (tp * 86400.) * Math.exp(-Math.pow(xstop/td,2));
-    L = factor * int1 / (4.*3.14*Math.pow(distance,2));
-    x[j] = (dx*(1+redshift)) * j + T;
-    y[j] = -2.5 * Math.log10(L*wav/c)-48.3;
-    dyg[j] = -2.5 * Math.log10(L*wavg/c)-48.3;
-    dyr[j] = -2.5 * Math.log10(L*wavr/c)-48.3;
-    dyi[j] = -2.5 * Math.log10(L*wavi/c)-48.3;
-    dyB[j] = -2.5 * Math.log10(L*wavB/c)-48.3;
+    int1 = numerically_integrate(0.001,xstop,dx,f1,td,tp);
+    factor = 2. * ep / (tp * 86400.) * Math.exp(-1.*Math.pow(xstop/td,2))/(td);
+    L = factor *int1 / (4.0 * 3.14 * Math.pow(distance,2));
+    L1 = L * wav/c * (1. - Math.exp(-A * Math.pow(xstop,-2)));
+    y[j] = -2.5 * Math.log10(L1)-48.6;
+    x[j] = (dx*(1.0+redshift)) * j + T;
 }
-source.change.emit();
-console.log(y);
+for(key in cd.data) {
+ y2 = data[key];
+   for (j = 0; j < x.length; j++) {
+    xstop = j * dx;
+    int1 = numerically_integrate(0.001,xstop,dx,f1,td,tp);
+    factor = 2. * ep / (tp * 86400.) * Math.exp(-1.*Math.pow(xstop/td,2))/(td);
+    L = factor *int1 / (4.0 * 3.14 * Math.pow(distance,2));
+    L1 = L * wd.data[key]/c * (1. - Math.exp(-A * Math.pow(xstop,-2)));
+    y2[j] = -2.5 * Math.log10(L1)-48.6;
+}
+source.change.emit(); 
+    }
 """)
 
 
-callback2=CustomJS(args=dict(source=source2, plotrange = plot.x_range, yplotrange = plot.y_range), code="""
+
+callback2=CustomJS(args=dict(source=source2, plotrange = plot.x_range, yplotrange = plot.y_range,cd = color_source, wd = wave_source), code="""
     const url = 'https://astrocats.space/api/' + TextThing.value + '/photometry/time+magnitude+e_magnitude+band+upperlimit';
     var sourcedata = source.data;
 fetch(url, {
@@ -145,42 +166,28 @@ fetch(url, {
   })
   .then(function(myJson) {
     var data = (myJson[TextThing.value]["photometry"]);
+
+    for (key in cd.data){
+        var yspec = []
+        for (i = 0; i < data.length; i++){
+            if (data[i][3] == key){
+                yspec.push(parseFloat(data[i][1]));
+                }else{
+                yspec.push(NaN);
+                }
+            }
+        sourcedata[key] = yspec;
+        source.change.emit();
+        }
+    
+    
     var x = [];
     var y = [];
-    var dyg = [];
-    var dyr = [];
-    var dyi = [];
-    var dyB = [];
-
-
     for (i = 0; i < data.length; i++){
-    if (!data[i][4]){
-    x.push(parseFloat(data[i][0]));
-    y.push(parseFloat(data[i][1]));
-    if (data[i][3] == "g"){
-    dyg.push(parseFloat(data[i][1]));
-    }else{
-    dyg.push(NaN);
-    }
-
-    if (data[i][3] == "r"){
-    dyr.push(parseFloat(data[i][1]));
-    }else{
-    dyr.push(NaN);
-    }
-
-    if (data[i][3] == "i"){
-    dyi.push(parseFloat(data[i][1]));
-    }else{
-    dyi.push(NaN);
-    }
-
-    if (data[i][3] == "B"){
-    dyB.push(parseFloat(data[i][1]));
-    }else{
-    dyB.push(NaN);
-    }
-    }
+        if (!data[i][4]){
+        x.push(parseFloat(data[i][0]));
+        y.push(parseFloat(data[i][1]));
+        }
     }
 
     function bouncer(arr){
@@ -193,10 +200,6 @@ fetch(url, {
 
     sourcedata["x"] = x;
     sourcedata["y"] = y;
-    sourcedata["dyg"] = dyg;
-    sourcedata["dyr"] = dyr;
-    sourcedata["dyi"] = dyi;
-    sourcedata["dyB"] = dyB;
     plotrange.start = Math.min(x);
     plotrange.start = Math.min.apply(Math, x);
     yplotrange.start = Math.max.apply(Math, y);
@@ -211,18 +214,14 @@ fetch(url, {
 
 
 plot.line('x', 'y', source=source, line_width=3, line_alpha=0.6)
+for i,filt in enumerate(filt_data[:,0]):
+    plot.line(x='x', y=filt, source=source, line_width=3, line_alpha=0.6, 
+        color=filt_data[i,2])
 plot.circle('x', 'y', source=source2)
+for i,filt in enumerate(filt_data[:,0]):
+    plot.circle(x='x', y=filt, source=source2, line_width=3, line_alpha=0.6, 
+        color=filt_data[i,2])
 
-plot.circle('x', 'dyg', source=source2, line_width=3, line_alpha=0.6, color="pink")
-plot.circle('x', 'dyr', source=source2, line_width=3, line_alpha=0.6, color="orange")
-plot.circle('x', 'dyi', source=source2, line_width=3, line_alpha=0.6, color="blue")
-plot.circle('x', 'dyB', source=source2, line_width=3, line_alpha=0.6, color="turquoise")
-# plot.circle('x', 'yU', source=source2, line_width=3, line_alpha=0.6, color="purple")
-
-plot.line('x', 'dyg', source=source, line_width=3, line_alpha=0.6, color="purple")
-plot.line('x', 'dyr', source=source, line_width=3, line_alpha=0.6, color="darkseagreen")
-plot.line('x', 'dyi', source=source, line_width=3, line_alpha=0.6, color="mediumturquoise")
-plot.line('x', 'dyB', source=source, line_width=3, line_alpha=0.6, color="#e34a33")
 
 arrayoftimes = np.array(photometry_time)
 
@@ -234,7 +233,7 @@ redshift_input = TextInput(title="title", value=str(redshift))
 M_slider = Slider(start=0.1, end=10, value=1, step=.1,
                      title="Ejecta Mass (solar mass)", callback=callback)
 bfield_slider = Slider(start=0.1, end=1, value=0.5, step=0.1,
-                    title="Magnetic Field (10^14g)", callback=callback)
+                    title=r"Magnetic Field (10¹⁴ G)", callback=callback)
 pspin_slider = Slider(start=1, end=10, value=5, step=1,
                     title="Spin Period (ms)", callback=callback)
 v_slider = Slider(start=5000, end=20000, value=10000, step=1000,

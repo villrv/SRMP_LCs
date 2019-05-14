@@ -206,26 +206,14 @@ fetch(url, {
 	""")
 
 
-callback3=CustomJS(args=dict(source=source2, plotrange = plot.x_range, yplotrange = plot.y_range), code="""
-	console.log(source);
-
-	""")
-button = Button(label="Button", button_type="success")
-button.js_on_event(events.ButtonClick, callback3) # Button click
-
 plot.line('x', 'y', source=source, line_width=3, line_alpha=0.6)
+for i,filt in enumerate(filt_data[:,0]):
+    plot.line(x='x', y=filt, source=source, line_width=3, line_alpha=0.6, 
+        color=filt_data[i,2])
 plot.circle('x', 'y', source=source2)
-
-plot.circle('x', 'g', source=source2, line_width=3, line_alpha=0.6, color="pink")
-plot.circle('x', 'r', source=source2, line_width=3, line_alpha=0.6, color="orange")
-plot.circle('x', 'i', source=source2, line_width=3, line_alpha=0.6, color="blue")
-plot.circle('x', 'B', source=source2, line_width=3, line_alpha=0.6, color="turquoise")
-# plot.circle('x', 'yU', source=source2, line_width=3, line_alpha=0.6, color="purple")
-
-plot.line('x', 'g', source=source, line_width=3, line_alpha=0.6, color="purple")
-plot.line('x', 'r', source=source, line_width=3, line_alpha=0.6, color="darkseagreen")
-plot.line('x', 'i', source=source, line_width=3, line_alpha=0.6, color="aliceblue")
-plot.line('x', 'B', source=source, line_width=3, line_alpha=0.6, color="#e34a33")
+for i,filt in enumerate(filt_data[:,0]):
+    plot.circle(x='x', y=filt, source=source2, line_width=3, line_alpha=0.6, 
+        color=filt_data[i,2])
 
 arrayoftimes = np.array(photometry_time)
 
@@ -266,8 +254,7 @@ text.on_change('value', update_title)
 inputs = widgetbox(text, M_slider, f_slider, v_slider, k_slider, T_slider)
 layout = row(
     plot,
-    inputs,
-    button
+    inputs
 )
 
 output_file("NewBokeh.html")
