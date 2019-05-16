@@ -18,7 +18,7 @@ photometry_time, photometry_mag, photometry_sigma, photometry_band, detection = 
 
 lumdist, redshift = querry_distance("DES17C1ffz")
 
-N = 200
+N = 700
 t_original = np.linspace(0, 100, N)
 t = t_original
 M = 5*(1.989*(10**33))
