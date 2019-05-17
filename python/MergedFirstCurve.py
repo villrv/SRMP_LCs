@@ -53,7 +53,7 @@ color_source = ColumnDataSource(data=color_dict)
 wave_source = ColumnDataSource(data=wv_dict)
 
 
-plot = figure(plot_height=400, plot_width=400, title="Super cool blackbody curve thing",
+plot = figure(plot_height=400, plot_width=400, title="Nickel Decay Model",
               tools="crosshair,pan,reset,save,wheel_zoom",
               x_range=[np.min(photometry_time) - 20, np.max(photometry_time) + 100], y_range=[np.max(photometry_mag), np.min(photometry_mag)])
 
@@ -224,20 +224,20 @@ for i,filt in enumerate(filt_data[:,0]):
 
 arrayoftimes = np.array(photometry_time)
 
-text = TextInput(title="Insert the name of the supernova here:", value='my parabola', callback = callback2)
+text = TextInput(title="Insert the name of the supernova here:", value='', callback = callback2)
 lumdist_input = TextInput(title="title", value=str(lumdist))
 redshift_input = TextInput(title="title", value=str(redshift))
 
 
 M_slider = Slider(start=0.1, end=10, value=1, step=.1,
-                     title="Ejecta Mass", callback=callback)
+                     title="Ejecta Mass (solar mass)", callback=callback)
 f_slider = Slider(start=0.01, end=1.0, value=0.1, step=.01,
                     title="Nickel Fraction", callback=callback)
 v_slider = Slider(start=5000, end=20000, value=10000, step=1000,
-                      title="Ejecta Velocity", callback=callback)
+                      title="Ejecta Velocity (km/s)", callback=callback)
 k_slider = Slider(start=0.1, end=0.4, value=0.2, step=.01,
-                       title="Opacity", callback=callback)
-T_slider = Slider(title="Time", value= arrayoftimes.min() - 10,
+                       title="Opacity (cm^2/g)", callback=callback)
+T_slider = Slider(title="Time (MJD)", value= arrayoftimes.min() - 10,
             start= arrayoftimes.min() - 10, end=arrayoftimes.max() + 10,
                   step= 10,callback=callback)
 
