@@ -14,7 +14,7 @@ from BlackbodyFunction import blackbody
 from QueryDistance import querry_distance
 from bokeh.models.sources import AjaxDataSource
 
-
+# these are coming from the osc
 photometry_time, photometry_mag, photometry_sigma, photometry_band, detection = querry_single_osc("DES17C1ffz")
 
 lumdist, redshift = querry_distance("DES17C1ffz")
