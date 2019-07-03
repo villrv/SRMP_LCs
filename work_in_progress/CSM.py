@@ -48,7 +48,10 @@ plot = figure(plot_height=400, plot_width=400, title="Super cool blackbody curve
 
 
 
-callback=CustomJS(args=dict(source=source), code="""
+callback=CustomJS(args=dict(source=source, plotrange = plot.x_range), code="""
+t0.start = plotrange.start;
+t0.end = plotrange.end;
+plotrange.change.emit();
 
 function numerically_integrate(a, b, dx, f,t0,n,s,q,A,betar,betaf,gn) {
  
@@ -92,9 +95,11 @@ var v = vej.value;
 v = v * Math.pow (10,5);
 var k = k.value;
 var data = source.data;
+var t00 = t0.value;
 x = data['x']
 y = data['y']
-var delta = 0;
+var delta = 1;
+var wav = 6e-5;
 var s = 2;
 var n = nindex.value;
 var rho = Math.pow(10,rhoo.value);
@@ -105,7 +110,10 @@ var q = rho * Math.pow(r0,s);
 var betaf = 1.0;
 var betar = 1.0;
 var A = 1.0;
-var gn = 1.0 / (4.0 * Math.PI * (n - delta)) * Math.pow(2.0 * (5.0 - delta) * (n - 5.0) * esn,(n - 3.) / 2.0) / Math.pow((3.0 - delta) * (n - 3.0) * m,(n - 5.0) / 2.0);                    
+var gn = 1.0 / (4.0 * Math.PI * (n - delta)) * Math.pow(2.0 * (5.0 - delta) * (n - 5.0) * esn,(n - 3.) / 2.0) / Math.pow((3.0 - delta) * (n - 3.0) * m,(n - 5.0) / 2.0);  
+var gn1 = 1.0 / (4.0 * Math.PI * (n - delta));
+var gn2 = Math.pow(2.0 * (5.0 - delta) * (n - 5.0) * esn,(n - 3.) / 2.0);
+var gn3 = Math.pow((3.0 - delta) * (n - 3.0) * m,(n - 5.0) / 2.0);
 t0 = k * m / (beta * c * r0);
 
 rcsm = (Math.pow((3.0 - s) /
@@ -124,14 +132,23 @@ tfs = (Math.abs((3.0 - s) * Math.pow(q, (3.0 - n) / (n - s)) * Math.pow(A * gn,(
 trs = Math.pow(v / (betar * Math.pow(A * gn / q,1.0 / (n - s))) * Math.pow(1.0 - (3.0 - n) * m /(4.0 * Math.PI * Math.pow(v,3.0 - n) * gn),1.0 / (3.0 - n)),(n - s) / (s - 3.0));
 
 
-
+var redshift = redshift.value;
+redshift = parseFloat(redshift);
+var distance = distance.value * 3e24;
 for (j = 0; j < x.length; j++) {
-   thing2 = 2. * Math.PI * Math.pow(A*gn/q,(5.-n)/(n-s)) * Math.pow(betar,5.-n)*gn * Math.pow((3.-s)/(n-s),3) * Math.pow(x[j]*86400,(2.*n+6.*s-n*s-15.)/(n-s)+1.0)/((2.*n+6.*s-n*s-15.)/(n-s)+1.0)
-   factor = 0.5/t0 * Math.exp(-x[j] * 86400.0/t0);
-   y[j] = factor * thing2 //* (1. - Math.exp(-kg * Math.pow(x[j],-2)));
+  xstop = j * dx;
+   thing2 = 2. * Math.PI * Math.pow(A*gn/q,(5.-n)/(n-s)) * Math.pow(betar,5.-n)*gn * Math.pow((3.-s)/(n-s),3) * Math.pow(xstop*86400,(2.*n+6.*s-n*s-15.)/(n-s)+1.0)/((2.*n+6.*s-n*s-15.)/(n-s)+1.0)
+   factor = 0.5/t0 * Math.exp(-xstop * 86400.0/t0);
+   x[j] = (dx*(1+redshift)) * j + t00;
+   L = factor * thing2 //* (1. - Math.exp(-kg * Math.pow(x[j],-2)));
+   L = L/(4.*Math.PI*Math.pow(distance,2));
+   y[j] = -2.5 * Math.log10(L*wav/c)-48.3;
 
 }
 source.change.emit();
+console.log(thing2);
+console.log(factor);
+console.log(t00);
 """)
 
 
@@ -239,7 +256,7 @@ redshift_input = TextInput(title="title", value=str(redshift))
 
 M_slider = Slider(start=0.1, end=10, value=1, step=.1,
                      title="Ejecta Mass", callback=callback)
-n_slider = Slider(start=0.1, end=1, value=0.5, step=0.1,
+n_slider = Slider(start=6, end=10, value=7, step=0.1,
                     title="n", callback=callback)
 rho_slider = Slider(start=1, end=10, value=5, step=1,
                     title="rho", callback=callback)
@@ -334,7 +351,7 @@ def update_data(attrname, old, new):
 
 
 # Set up layouts and add to document
-inputs = widgetbox(text, M_slider, v_slider, k_slider, n_slider, r0_slider, rho_slider)
+inputs = widgetbox(text, M_slider, v_slider, k_slider, n_slider, r0_slider, rho_slider, T_slider)
 layout = row(
     plot,
     inputs,
