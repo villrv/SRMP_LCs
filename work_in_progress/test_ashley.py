@@ -1,6 +1,6 @@
 import numpy as np
 from bokeh.io import curdoc
-from bokeh.layouts import row, widgetbox
+from bokeh.layouts import row, widgetbox,column
 from bokeh.models import ColumnDataSource, CustomJS, Button
 from bokeh.models.widgets import Slider, TextInput
 from bokeh.plotting import figure, output_file, save
@@ -205,6 +205,149 @@ fetch(url, {
   })
 	""")
 
+callback3=CustomJS(args=dict(source=source2,source1=source, plotrange = plot.x_range, 
+    yplotrange = plot.y_range,cd = color_source, wd = wave_source), code="""
+function numerically_integrate(a, b, dx, f,td) {
+    
+    // calculate the number of trapezoids
+    n = (b - a) / dx;
+    
+    // define the variable for area
+    Area = 0;
+    
+    //loop to calculate the area of each trapezoid and sum.
+    for (i = 1; i <= n; i++) {
+        //the x locations of the left and right side of each trapezpoid
+        x0 = a + (i-1)*dx;
+        x1 = a + i*dx;
+        
+        // the area of each trapezoid
+        Ai = dx * (f(x0,td) + f(x1,td))/ 2.;
+        
+        // cumulatively sum the areas
+        Area = Area + Ai    
+        
+    } 
+    return Area;
+}
+
+
+//define function to be integrated
+function f1(x,td){
+    return x / td * Math.exp(Math.pow(x/td,2)) * Math.exp(-x/8.77);
+}
+
+function f2(x,td){
+    return x / td * Math.exp(Math.pow(x/td,2)) * Math.exp(-x/111);
+}
+
+function makeArr(startValue, stopValue, cardinality) {
+  var arr = [];
+  var currValue = startValue;
+  var step = (stopValue - startValue) / (cardinality - 1.0);
+  for (var i = 0; i < cardinality; i++) {
+    arr.push(currValue + (step * i));
+  }
+  return arr;
+}
+
+dx = 0.5;       // width of the trapezoids
+
+var tni = 8.8;
+var tco = 111.3;
+var epni = 3.9e10;
+var epco = 6.8e9;
+var beta = 13.8;
+var c = 1.0e10;
+var msol = 2e33;
+var m = mej.value;
+mtry = makeArr(Math.max(m-2,0.1),m+2,2);
+m = m * msol;
+var wav = 6e-5;
+var mni = fni.value;
+fnitry = makeArr(Math.max(mni-0.2,0.01),Math.min(mni+0.2,1),2);
+mni = mni * m;
+var T = T.value;
+Ttry = makeArr(T-10,T+10,2);
+var v = vej.value;
+vtry = makeArr(Math.max(v-5000,5000),Math.min(v+5000,20000),5);
+v = v * Math.pow (10,5);
+var k = k.value;
+var td = Math.sqrt(2. * k * m / (beta * c * v)) / 86400;
+var data = source.data;
+var xstop = 0.0;
+x = data['x'];
+y = data['y'];
+x_model = source1.data['x'];
+y_model = source1.data['y'];
+y_model = y * 0.0;
+console.log(x.length)
+var distance = distance.value * 3e24;
+var redshift = redshift.value;
+redshift = parseFloat(redshift);
+var mbest = 0.0;
+var mnibest = 0.0;
+var Tbest = 0.0;
+var vbest = 0.0;
+
+var chi_best = 999999.0
+var chi = 0;
+for(mm in mtry){
+    for (mmni in fnitry){
+        for (mT in Ttry){
+            for (mv in vtry){
+                chi = 0;
+                for (j = 0; j < x.length; j++) {
+                    v = vtry[mv] * Math.pow(10,5);
+                    m = mtry[mm] * msol;
+                    td = Math.sqrt(2. * k * m / (beta * c * v)) / 86400;
+                    mni = fnitry[mmni] * mtry[mm];
+                    xstop = x[j]-Ttry[mT];
+                    int1 = numerically_integrate(0,xstop,dx,f1,td);
+                    int2 = numerically_integrate(0,xstop,dx,f2,td);
+                    factor = 2 * mni / td * Math.exp(-Math.pow(xstop/td,2));
+                    L = factor * ((epni-epco) * int1 + epco * int2) / (4.*3.14*Math.pow(distance,2));
+                    mag = -2.5 * Math.log10(L*wav/c)-48.3;
+                    console.log(v,m,td,mni)
+                    if(isFinite(mag)){
+                    chi = chi + Math.pow(y[j] - mag,2);
+                }
+                console.log(mtry[mm],fnitry[mmni],Ttry[mT],vtry[mv],chi,chi_best)
+                if((chi < chi_best) & (chi != 0)){
+                    mbest = mtry[mm];
+                    mnibest = fnitry[mmni];
+                    Tbest = Ttry[mT];
+                    vbest = vtry[mv];
+                    chi_best = chi;
+                }
+            }
+        }
+    }
+}
+}
+mej.value = mbest;
+fni.value = mnibest;
+T.value = Tbest;
+vej.value = vbest;
+v = vbest * Math.pow(10,5);
+m = mbest * msol;
+td = Math.sqrt(2. * k * m/ (beta * c * v)) / 86400;
+mni = fni * mbest * msol;
+console.log(mbest,mnibest,Tbest,vbest)
+for(key in cd.data) {
+ y2 = source1.data[key];
+   for (j = 0; j < x_model.length; j++) {
+    xstop = j * dx;
+    int1 = numerically_integrate(0,xstop,dx,f1,td);
+    int2 = numerically_integrate(0,xstop,dx,f2,td);
+    factor = 2 * mni / td * Math.exp(-Math.pow(xstop/td,2));
+    L = factor * ((epni-epco) * int1 + epco * int2) / (4.*3.14*Math.pow(distance,2));
+    y2[j] = -2.5 * Math.log10(L*wd.data[key]/c)-48.3;
+    }
+}
+source.change.emit(); 
+    """)
+
 
 plot.line('x', 'y', source=source, line_width=3, line_alpha=0.6)
 for i,filt in enumerate(filt_data[:,0]):
@@ -226,13 +369,14 @@ M_slider = Slider(start=0.1, end=10, value=1, step=.1,
                      title="Ejecta Mass", callback=callback)
 f_slider = Slider(start=0.01, end=1.0, value=0.1, step=.01,
                     title="Nickel Fraction", callback=callback)
-v_slider = Slider(start=5000, end=20000, value=10000, step=1000,
+v_slider = Slider(start=5000, end=20000, value=10000, step=100,
                       title="Ejecta Velocity", callback=callback)
 k_slider = Slider(start=0.1, end=0.4, value=0.2, step=.01,
                        title="Opacity", callback=callback)
 T_slider = Slider(title="Time", value= arrayoftimes.min() - 10,
             start= arrayoftimes.min() - 10, end=arrayoftimes.max() + 10,
                   step= 10,callback=callback)
+button = Button(label="Foo", button_type="success",callback=callback3)
 
 callback.args["mej"] = M_slider
 callback.args["fni"] = f_slider
@@ -240,12 +384,17 @@ callback.args["vej"] = v_slider
 callback.args["k"] = k_slider
 callback.args["T"] = T_slider
 
+callback3.args["mej"] = M_slider
+callback3.args["fni"] = f_slider
+callback3.args["vej"] = v_slider
+callback3.args["k"] = k_slider
+callback3.args["T"] = T_slider
 
 callback2.args["TextThing"] = text
-
 callback.args["distance"] = lumdist_input
 callback.args["redshift"] = redshift_input
-
+callback3.args["distance"] = lumdist_input
+callback3.args["redshift"] = redshift_input
 
 text.on_change('value', update_title)
 
@@ -254,7 +403,9 @@ text.on_change('value', update_title)
 inputs = widgetbox(text, M_slider, f_slider, v_slider, k_slider, T_slider)
 layout = row(
     plot,
-    inputs
+    column(
+    inputs,
+    button)
 )
 
 output_file("NewBokeh.html")

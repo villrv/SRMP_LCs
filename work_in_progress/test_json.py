@@ -18,7 +18,32 @@ photometry_time, photometry_mag, photometry_sigma, photometry_band, detection = 
 
 lumdist, redshift = querry_distance("DES17C1ffz")
 
-N = 200
+
+
+
+#### ASHLEY TEST AREA -- IGNORE ########
+
+from bokeh.io import output_file, show
+from bokeh.models.widgets import Button
+
+callback=CustomJS(args=dict(source=source,plotrange = plot.x_range,cd = color_source, wd = wave_source), code="""
+var name = 'Test';
+var type = 'json';
+var text = 'Hi';
+  var a = document.getElementById("a");
+  var file = new Blob([text], {type: type});
+  a.href = URL.createObjectURL(file);
+  a.download = name;
+""")
+
+
+button = Button(label="Save", button_type="success")
+
+#############################
+
+
+
+N = 700
 t_original = np.linspace(0, 100, N)
 t = t_original
 M = 5*(1.989*(10**33))
@@ -49,117 +74,106 @@ wv_dict = dict(zip(filt_data[:,0], filt_data[:,1]))
 for thing in wv_dict:
     wv_dict[thing] = [wv_dict[thing]]
 
-source = ColumnDataSource(data=dict(x=x, y=y))
-source2 = ColumnDataSource(data=dict(x=x, y=y))
+source = ColumnDataSource(data=column_source)
+source2 = ColumnDataSource(data=column_source)
 color_source = ColumnDataSource(data=color_dict)
 wave_source = ColumnDataSource(data=wv_dict)
 
 
-plot = figure(plot_height=400, plot_width=400, title="Super cool blackbody curve thing",
+plot = figure(plot_height=400, plot_width=400, title="Magnetar Model",
               tools="crosshair,pan,reset,save,wheel_zoom",
               x_range=[np.min(photometry_time) - 20, np.max(photometry_time) + 100], y_range=[np.max(photometry_mag), np.min(photometry_mag)])
 
 
-
-callback=CustomJS(args=dict(source=source, plotrange = plot.x_range), code="""
-t0.start = plotrange.start;
-t0.end = plotrange.end;
+callback=CustomJS(args=dict(source=source,plotrange = plot.x_range,cd = color_source, wd = wave_source), code="""
+T.start = plotrange.start;
+T.end = plotrange.end;
 plotrange.change.emit();
 
-function numerically_integrate(a, b, dx, f,t0,n,s,q,A,betar,betaf,gn) {
- 
-  // calculate the number of trapezoids
-  N = (b - a) / dx;
- 
-  // define the variable for area
-  Area = 0;
- 
-  //loop to calculate the area of each trapezoid and sum.
-  for (i = 1; i <= N; i++) {
-     //the x locations of the left and right side of each trapezpoid
-     x0 = a + (i-1)*dx;
-     x1 = a + i*dx;
-    
-     // the area of each trapezoid
-     Ai = dx * (f(x0,t0,n,s,q,A,betar,betaf,gn) + f(x1,t0,n,s,q,A,betar,betaf,gn))/ 2.;
-    
-     // cumulatively sum the areas
-     Area = Area + Ai  
-    
-  }
-  return Area;
-}
-
-function f2(x,t0,n,s,q,A,betar,betaf,gn){
-  return 2. * Math.PI * Math.pow(A*gn/q,(5.-n)/(n-s)) * Math.pow(betar,5.-n)*gn * Math.pow((3.-s)/(n-s),3) * Math.pow(x*86400,(2.*n+6.*s-n*s-15.)/(n-s));
+function numerically_integrate(a, b, dx, f,td,tp) {
+   
+   // calculate the number of trapezoids
+   n = (b - a) / dx;
+   
+   // define the variable for area
+   Area = 0;
+   
+   //loop to calculate the area of each trapezoid and sum.
+   for (i = 1; i <= n; i++) {
+      //the x locations of the left and right side of each trapezpoid
+      x0 = a + (i-1)*dx;
+      x1 = a + i*dx;
+      
+      // the area of each trapezoid
+      Ai = dx * (f(x0,td,tp) + f(x1,td,tp))/ 2.;
+      
+      // cumulatively sum the areas
+      Area = Area + Ai   
+      
+   } 
+   return Area;
 }
 
 
+//define function to be integrated
+function f1(x,td,tp){
+   return Math.exp(Math.pow(x/td,2)) * x/td / Math.pow(1. + (2.*x/tp),2);
+}
 
-dx = 2.0;     // width of the trapezoids
-
+dx = .5;     // width of the trapezoids
 
 var beta = 13.8;
-var c = 1.0e10;
+var c = 3.0e10;
 var msol = 2e33;
 var m = mej.value;
 m = m * msol;
 var v = vej.value;
-v = v * Math.pow (10,5);
+v = v * Math.pow(10,5);
+var wav = 6.0e-5;
+var wavB = 4.45e-5;
+var wavg = 4.64e-5;
+var wavi = 8.06e-5;
+var wavr = 6.58e-5;
+var T = T.value;
+var kg = .06;
 var k = k.value;
+var b = bfield.value;
+var p = pspin.value;
+var td = Math.sqrt(2. * k * m / (beta * c * v)) / 86400;
 var data = source.data;
-var t00 = t0.value;
-x = data['x']
-y = data['y']
-var delta = 1;
-var wav = 6e-5;
-var s = 2;
-var n = nindex.value;
-var rho = Math.pow(10,rhoo.value);
-var r0 = r0o.value * 1.496e13;
-var mcsm = 10.0 * msol;
-var esn = 3. * Math.pow(v,2) * m / 10.;
-var q = rho * Math.pow(r0,s);
-var betaf = 1.0;
-var betar = 1.0;
-var A = 1.0;
-var gn = 1.0 / (4.0 * Math.PI * (n - delta)) * Math.pow(2.0 * (5.0 - delta) * (n - 5.0) * esn,(n - 3.) / 2.0) / Math.pow((3.0 - delta) * (n - 3.0) * m,(n - 5.0) / 2.0);  
-t0 = k * m / (beta * c * r0);
+x = data['x'];
+y = data['y'];
+var ep = Math.pow(p,-2) * 2.6e52;
+var tp = 2.6e5 * Math.pow(b,-2)*Math.pow(p,2)/86400;
+var yy = td/tp;
+var A = 3. * kg * m / (3.14 * 4. * Math.pow(v,2))/Math.pow(86400.,2)
 
-rcsm = (Math.pow((3.0 - s) /
-        (4.0 * Math.PI * q) * mcsm + Math.pow(r0,
-            3.0 - s),1.0 / (3.0 - s)))
-
-rph = Math.abs(
-       Math.pow(-2.0 * (1.0 - s) /
-        (3.0 * k * q) + Math.pow(rcsm,1.0 - s),1.0 /
-        (1.0 - s)))
-
-mcsmth = Math.abs(4.0 * Math.PI * q / (3.0 - s) * (
-       Math.pow(rph,3.0 - s) - Math.pow(r0, 3.0 - s)))
-
-tfs = (Math.abs((3.0 - s) * Math.pow(q, (3.0 - n) / (n - s)) * Math.pow(A * gn,(s - 3.0) / (n - s)) / (4.0 * Math.PI * Math.pow(betaf,3.0 - s))) ** ( (n - s) / ( (n - 3.0) * (3.0 - s))) * Math.pow(mcsmth,(n - s) / ((n - 3.0) * (3.0 - s))));
-trs = Math.pow(v / (betar * Math.pow(A * gn / q,1.0 / (n - s))) * Math.pow(1.0 - (3.0 - n) * m /(4.0 * Math.PI * Math.pow(v,3.0 - n) * gn),1.0 / (3.0 - n)),(n - s) / (s - 3.0));
-
-
+var distance = parseFloat(distance.value) * 3e24;
 var redshift = redshift.value;
 redshift = parseFloat(redshift);
-var distance = distance.value * 3e24;
+
 for (j = 0; j < x.length; j++) {
-  xstop = j * dx;
-   thing2 = 2. * Math.PI * Math.pow(A*gn/q,(5.-n)/(n-s)) * Math.pow(betar,5.-n)*gn * Math.pow((3.-s)/(n-s),3) * Math.pow(xstop*86400,(2.*n+6.*s-n*s-15.)/(n-s)+1.0)/((2.*n+6.*s-n*s-15.)/(n-s)+1.0)
-   factor = 0.5/t0 * Math.exp(-xstop * 86400.0/t0);
-   x[j] = (dx*(1+redshift)) * j + t00;
-   L = factor * thing2 //* (1. - Math.exp(-kg * Math.pow(x[j],-2)));
-   L = L/(4.*Math.PI*Math.pow(distance,2));
-   y[j] = -2.5 * Math.log10(L*wav/c)-48.3;
-
+    xstop = j * dx;
+    int1 = numerically_integrate(0.001,xstop,dx,f1,td,tp);
+    factor = 2. * ep / (tp * 86400.) * Math.exp(-1.*Math.pow(xstop/td,2))/(td);
+    L = factor *int1 / (4.0 * 3.14 * Math.pow(distance,2));
+    L1 = L * wav/c * (1. - Math.exp(-A * Math.pow(xstop,-2)));
+    y[j] = -2.5 * Math.log10(L1)-48.6;
+    x[j] = (dx*(1.0+redshift)) * j + T;
 }
-source.change.emit();
-console.log(t0);
-console.log(t00);
+for(key in cd.data) {
+ y2 = data[key];
+   for (j = 0; j < x.length; j++) {
+    xstop = j * dx;
+    int1 = numerically_integrate(0.001,xstop,dx,f1,td,tp);
+    factor = 2. * ep / (tp * 86400.) * Math.exp(-1.*Math.pow(xstop/td,2))/(td);
+    L = factor *int1 / (4.0 * 3.14 * Math.pow(distance,2));
+    L1 = L * wd.data[key]/c * (1. - Math.exp(-A * Math.pow(xstop,-2)));
+    y2[j] = -2.5 * Math.log10(L1)-48.6;
+}
+source.change.emit(); 
+    }
 """)
-
 
 
 
@@ -225,38 +239,42 @@ fetch(url, {
 
 
 plot.line('x', 'y', source=source, line_width=3, line_alpha=0.6)
+for i,filt in enumerate(filt_data[:,0]):
+    plot.line(x='x', y=filt, source=source, line_width=3, line_alpha=0.6, 
+        color=filt_data[i,2])
 plot.circle('x', 'y', source=source2)
+for i,filt in enumerate(filt_data[:,0]):
+    plot.circle(x='x', y=filt, source=source2, line_width=3, line_alpha=0.6, 
+        color=filt_data[i,2])
+
 
 arrayoftimes = np.array(photometry_time)
 
-text = TextInput(title="title", value='my parabola', callback = callback2)
+text = TextInput(title="Insert the name of the supernova here:", value='', callback = callback2)
 lumdist_input = TextInput(title="title", value=str(lumdist))
 redshift_input = TextInput(title="title", value=str(redshift))
 
 
 M_slider = Slider(start=0.1, end=10, value=1, step=.1,
-                     title="Ejecta Mass", callback=callback)
-n_slider = Slider(start=6, end=14, value=7, step=0.1,
-                    title="n", callback=callback)
-rho_slider = Slider(start=-15, end=-1, value=-10, step=.1,
-                    title="rho", callback=callback)
-r0_slider = Slider(start=1, end=100, value=5, step=1,
-                    title="r0", callback=callback)
+                     title="Ejecta Mass (solar mass)", callback=callback)
+bfield_slider = Slider(start=0.1, end=1, value=0.5, step=0.1,
+                    title=r"Magnetic Field (10¹⁴ G)", callback=callback)
+pspin_slider = Slider(start=1, end=10, value=5, step=1,
+                    title="Spin Period (ms)", callback=callback)
 v_slider = Slider(start=5000, end=20000, value=10000, step=1000,
-                      title="Ejecta Velocity", callback=callback)
+                      title="Ejecta Velocity (km/s)", callback=callback)
 k_slider = Slider(start=0.1, end=0.4, value=0.2, step=.01,
-                       title="Opacity", callback=callback)
-T_slider = Slider(title="t0", value= arrayoftimes.min() - 10,
+                       title="Opacity (cm^2/g)", callback=callback)
+T_slider = Slider(title="Time (days)", value= arrayoftimes.min() - 10,
             start= arrayoftimes.min() - 10, end=arrayoftimes.max() + 10,
                   step= 10,callback=callback)
 
 callback.args["mej"] = M_slider
 callback.args["vej"] = v_slider
 callback.args["k"] = k_slider
-callback.args["nindex"] = n_slider
-callback.args["rhoo"] = rho_slider
-callback.args["r0o"] = r0_slider
-callback.args["t0"] = T_slider
+callback.args["T"] = T_slider
+callback.args["bfield"] = bfield_slider
+callback.args["pspin"] = pspin_slider
 
 
 callback2.args["TextThing"] = text
@@ -323,7 +341,7 @@ def update_data(attrname, old, new):
     magnitude = -2.5*np.log10(L/4e33)+4.3
 
 
-    source.data = dict(x=t*(1.+redshift) + T_slider.value, y= magblackbody)
+    source.data = dict(x=t*(1.+redshift) + T_slider.value, y= magblackbody ,yB = magblackbody_B, yr = magblackbody_r,yi = magblackbody_i, yV = magblackbody_V, yU = magblackbody_U)
 
 
 #for w in [M_slider,f_slider,v_slider, k_slider, T_slider]:
@@ -331,13 +349,14 @@ def update_data(attrname, old, new):
 
 
 # Set up layouts and add to document
-inputs = widgetbox(text, M_slider, v_slider, k_slider, n_slider, r0_slider, rho_slider, T_slider)
+inputs = widgetbox(text, M_slider, v_slider, k_slider, T_slider, bfield_slider, pspin_slider)
 layout = row(
     plot,
     inputs,
+    button
 )
 
-output_file("CSM.html")
+output_file("MagnetarThing.html")
 
 save(plot)
 show(layout)
