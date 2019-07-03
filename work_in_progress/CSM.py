@@ -249,7 +249,9 @@ v_slider = Slider(start=5000, end=20000, value=10000, step=1000,
                       title="Ejecta Velocity", callback=callback)
 k_slider = Slider(start=0.1, end=0.4, value=0.2, step=.01,
                        title="Opacity", callback=callback)
-
+T_slider = Slider(title="t0", value= arrayoftimes.min() - 10,
+            start= arrayoftimes.min() - 10, end=arrayoftimes.max() + 10,
+                  step= 10,callback=callback)
 
 callback.args["mej"] = M_slider
 callback.args["vej"] = v_slider
@@ -257,6 +259,7 @@ callback.args["k"] = k_slider
 callback.args["nindex"] = n_slider
 callback.args["rhoo"] = rho_slider
 callback.args["r0o"] = r0_slider
+callback.args["t0"] = T_slider
 
 
 callback2.args["TextThing"] = text
