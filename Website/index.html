@@ -300,12 +300,15 @@
 
 
 
+                        
                          <div class="loadiframebutton2">
                         <button type="button" id="button2">Nickel Decay Model</button>
                         </div>
                          <div class="loadiframebutton">
                         <button type="button" id="button">Magnetar Model</button>
                         </div>
+                         <div class="loadiframebutton3">
+                        <button type="button" id="button3">CSM Model</button>
                         <script>
                         function iframeChangebutton2() {
                             var buttons2 = document.querySelector(".loadiframebutton2");
@@ -317,9 +320,15 @@
                             buttons.addEventListener("click", function (e) {
                                 frame.src = "Magnetar.html";
                             });
+                            var buttons3 = document.querySelector(".loadiframebutton3");
+                            buttons3.addEventListener("click", function (e) {
+                                frame.src = "CSM.html";}
+                            );
                         }
                         window.onload = iframeChangebutton2;
                         </script>
+
+
 
                         <!-- <div class="loadiframe">
                         <button type="button" id="button1">Magnetar Model</button>

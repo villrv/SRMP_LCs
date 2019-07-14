@@ -49,13 +49,13 @@ wv_dict = dict(zip(filt_data[:,0], filt_data[:,1]))
 for thing in wv_dict:
     wv_dict[thing] = [wv_dict[thing]]
 
-source = ColumnDataSource(data=dict(x=x, y=y))
-source2 = ColumnDataSource(data=dict(x=x, y=y))
+source = ColumnDataSource(data=dict(x=x, y=y, dyg=y, dyr=y, dyi=y, dyB=y))
+source2 = ColumnDataSource(data=dict(x=x, y=y, dyg=y, dyr=y, dyi=y, dyB=y))
 color_source = ColumnDataSource(data=color_dict)
 wave_source = ColumnDataSource(data=wv_dict)
 
 
-plot = figure(plot_height=400, plot_width=400, title="Super cool blackbody curve thing",
+plot = figure(plot_height=400, plot_width=400, title="Circumstellar Material Model",
               tools="crosshair,pan,reset,save,wheel_zoom",
               x_range=[np.min(photometry_time) - 20, np.max(photometry_time) + 100], y_range=[np.max(photometry_mag), np.min(photometry_mag)])
 
@@ -111,8 +111,16 @@ var data = source.data;
 var t00 = t0.value;
 x = data['x']
 y = data['y']
+dyg = data['dyg'];
+dyr = data['dyr'];
+dyi = data['dyi'];
+dyB = data['dyB'];
 var delta = 1;
 var wav = 6e-5;
+var wavB = 4.45e-5;
+var wavg = 4.64e-5;
+var wavi = 8.06e-5;
+var wavr = 6.58e-5;
 var s = 2;
 var n = nindex.value;
 var rho = Math.pow(10,rhoo.value);
@@ -153,11 +161,13 @@ for (j = 0; j < x.length; j++) {
    L = factor * thing2 //* (1. - Math.exp(-kg * Math.pow(x[j],-2)));
    L = L/(4.*Math.PI*Math.pow(distance,2));
    y[j] = -2.5 * Math.log10(L*wav/c)-48.3;
+   dyg[j] = -2.5 * Math.log10(L*wavg/c)-48.3;
+   dyr[j] = -2.5 * Math.log10(L*wavr/c)-48.3;
+   dyi[j] = -2.5 * Math.log10(L*wavi/c)-48.3;
+   dyB[j] = -2.5 * Math.log10(L*wavB/c)-48.3;
 
 }
 source.change.emit();
-console.log(t0);
-console.log(t00);
 """)
 
 
@@ -194,10 +204,42 @@ fetch(url, {
     
     var x = [];
     var y = [];
+    var dyg = [];
+    var dyr = [];
+    var dyi = [];
+    var dyB = [];
     for (i = 0; i < data.length; i++){
         if (!data[i][4]){
         x.push(parseFloat(data[i][0]));
         y.push(parseFloat(data[i][1]));
+        if (data[i][3] == "g"){
+        dyg.push(parseFloat(data[i][1]));
+         }else{
+         dyg.push(NaN);
+         } 
+        if (data[i][3] == "r"){
+        dyr.push(parseFloat(data[i][1]));
+        }else{
+        dyr.push(NaN);
+        }
+
+        if (data[i][3] == "i"){
+        dyi.push(parseFloat(data[i][1]));
+        }else{
+        dyi.push(NaN);
+        }
+
+        if (data[i][3] == "B"){
+        dyB.push(parseFloat(data[i][1]));
+        }else{
+        dyB.push(NaN);
+        }
+
+
+
+
+
+
         }
     }
 
@@ -211,6 +253,12 @@ fetch(url, {
 
     sourcedata["x"] = x;
     sourcedata["y"] = y;
+
+    sourcedata["dyg"] = dyg;
+    sourcedata["dyr"] = dyr;
+    sourcedata["dyi"] = dyi;
+    sourcedata["dyB"] = dyB;
+
     plotrange.start = Math.min(x);
     plotrange.start = Math.min.apply(Math, x);
     yplotrange.start = Math.max.apply(Math, y);
@@ -227,9 +275,20 @@ fetch(url, {
 plot.line('x', 'y', source=source, line_width=3, line_alpha=0.6)
 plot.circle('x', 'y', source=source2)
 
+plot.circle('x', 'dyg', source=source2, line_width=3, line_alpha=0.6, color="pink")
+plot.circle('x', 'dyr', source=source2, line_width=3, line_alpha=0.6, color="orange")
+plot.circle('x', 'dyi', source=source2, line_width=3, line_alpha=0.6, color="blue")
+plot.circle('x', 'dyB', source=source2, line_width=3, line_alpha=0.6, color="turquoise")
+
+plot.line('x', 'dyg', source=source, line_width=3, line_alpha=0.6, color="pink")
+plot.line('x', 'dyr', source=source, line_width=3, line_alpha=0.6, color="orange")
+plot.line('x', 'dyi', source=source, line_width=3, line_alpha=0.6, color="blue")
+plot.line('x', 'dyB', source=source, line_width=3, line_alpha=0.6, color="turquoise")
+
+
 arrayoftimes = np.array(photometry_time)
 
-text = TextInput(title="title", value='my parabola', callback = callback2)
+text = TextInput(title="Insert the name of the supernova here:", value='', callback = callback2)
 lumdist_input = TextInput(title="title", value=str(lumdist))
 redshift_input = TextInput(title="title", value=str(redshift))
 
