@@ -14,11 +14,10 @@ from BlackbodyFunction import blackbody
 from QueryDistance import querry_distance
 from bokeh.models.sources import AjaxDataSource
 
-photometry_time, photometry_mag, photometry_sigma, photometry_band, detection = querry_single_osc("DES17C1ffz")
+photometry_time, photometry_mag, photometry_sigma, photometry_band, detection = [0,100],[19,10],[1,1],['r','r'],[]
+lumdist, redshift = '',''
 
-lumdist, redshift = querry_distance("DES17C1ffz")
-
-N = 200
+N = 600
 t_original = np.linspace(0, 100, N)
 t = t_original
 M = 5*(1.989*(10**33))
@@ -39,17 +38,102 @@ y = L
 
 source = ColumnDataSource(data=dict(x=x, y=y, dyg=y, dyr=y, dyi=y, dyB=y))
 source2 = ColumnDataSource(data=dict(x=x, y=y, dyg=y, dyr=y, dyi=y, dyB=y))
-
-
+color_source = ColumnDataSource(data=color_dict)
+wave_source = ColumnDataSource(data=wv_dict)
 
 plot = figure(plot_height=400, plot_width=400, title="Super cool blackbody curve thing",
               tools="crosshair,pan,reset,save,wheel_zoom",
               x_range=[np.min(photometry_time) - 20, np.max(photometry_time) + 100], y_range=[np.max(photometry_mag), np.min(photometry_mag)])
 
 
+#Hacky solution to get input in
+lumdist_input = TextInput(title="", value=str(lumdist))
+redshift_input = TextInput(title="", value=str(redshift))
 
-callback=CustomJS(args=dict(source=source), code="""
+from bokeh.io import output_file, show
+from bokeh.models.widgets import Button
 
+javaScript="""
+name_vej = vej.value;
+name_v = name_v.value;
+name_mej = mej.value;
+name_k = myk.value;
+name_t0 = myt0.value;
+name_f = myf.value;
+
+
+var today = new Date();
+var dd = today.getDate();
+var mm = today.getMonth()+1;
+var yyyy = today.getFullYear();
+
+if(dd<10) {
+    dd = '0'+dd
+} 
+
+if(mm<10) {
+    mm = '0'+mm
+} 
+
+today = mm + '/' + dd + '/' + yyyy;
+
+var name_val = {
+        "models": {
+            "code":"SNIF",
+            "date":today,
+            "name":name_v,
+            "model":"csm",
+            "parameters":{
+                        "vejecta":{
+                            "latex":"Ejecta Velocity (km/s)",
+                            "value":name_vej
+                        },
+                        "mejecta":{
+                            "latex":"Ejecta Mass (Msol)",
+                            "value":name_mej
+                        },
+                        "kappa":{
+                            "latex":"Opacity (cm^2/g)",
+                            "value":name_k
+                        },
+                        "texplosion":{
+                            "latex":"Explosion Day (MJD)",
+                            "value":name_t0
+                        },
+                        "fnickel":{
+                            "latex":"Nickel Fraction",
+                            "value":name_f
+                        }
+                    }
+                }
+    }
+
+var sampleObject = {};
+sampleObject[name_v] = name_val;
+
+const filename = name_v+'.json';
+filetext = JSON.stringify(sampleObject, null, "\t");
+const blob = new Blob([filetext], { type: 'text/json;charset=utf-8;' });
+
+//addresses IE
+if (navigator.msSaveBlob) {
+    navigator.msSaveBlob(blob, filename)
+} else {
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.download = filename
+    link.target = '_blank'
+    link.style.visibility = 'hidden'
+    link.dispatchEvent(new MouseEvent('click'))
+}
+"""
+
+button = Button(label="Save Model", button_type="success")
+
+
+
+
+callback=CustomJS(args=dict(source=source,lumdist = lumdist_input,redshift=redshift_input,plotrange = plot.x_range,cd = color_source, wd = wave_source), code="""
 function numerically_integrate(a, b, dx, f,t0,n,s,q,A,betar,betaf,gn) {
 
 // calculate the number of trapezoids
@@ -107,6 +191,8 @@ var betar = 1.0;
 var A = 1.0;
 var gn = 1.0 / (4.0 * Math.PI * (n - delta)) * Math.pow(2.0 * (5.0 - delta) * (n - 5.0) * esn,(n - 3.) / 2.0) / Math.pow((3.0 - delta) * (n - 3.0) * m,(n - 5.0) / 2.0); 
 t0 = k * m / (beta * c * r0);
+var distance = parseFloat(lumdist.value) * 3e24;
+var redshift = parseFloat(redshift.value);
 
 rcsm = (Math.pow((3.0 - s) /
 (4.0 * Math.PI * q) * mcsm + Math.pow(r0,

@@ -1,7 +1,7 @@
 import numpy as np
 
 from bokeh.io import curdoc
-from bokeh.layouts import row, widgetbox
+from bokeh.layouts import row, widgetbox, column
 from bokeh.models import ColumnDataSource, CustomJS
 from bokeh.models.widgets import Slider, TextInput
 from bokeh.plotting import figure, output_file, save
@@ -14,9 +14,9 @@ from BlackbodyFunction import blackbody
 from QueryDistance import querry_distance
 from bokeh.models.sources import AjaxDataSource
 
-photometry_time, photometry_mag, photometry_sigma, photometry_band, detection = querry_single_osc("DES17C1ffz")
+photometry_time, photometry_mag, photometry_sigma, photometry_band, detection = [0,100],[19,10],[1,1],['r','r'],[]
+lumdist, redshift = '',''
 
-lumdist, redshift = querry_distance("DES17C1ffz")
 
 N = 700
 t_original = np.linspace(0, 100, N)
@@ -59,8 +59,98 @@ plot = figure(plot_height=400, plot_width=400, title="Magnetar Model",
               tools="crosshair,pan,reset,save,wheel_zoom",
               x_range=[np.min(photometry_time) - 20, np.max(photometry_time) + 100], y_range=[np.max(photometry_mag), np.min(photometry_mag)])
 
+#Hacky solution to get input in
+lumdist_input = TextInput(title="", value=str(lumdist))
+redshift_input = TextInput(title="", value=str(redshift))
 
-callback=CustomJS(args=dict(source=source,plotrange = plot.x_range,cd = color_source, wd = wave_source), code="""
+
+from bokeh.io import output_file, show
+from bokeh.models.widgets import Button
+
+javaScript="""
+name_vej = vej.value;
+name_v = name_v.value;
+name_mej = mej.value;
+name_k = myk.value;
+name_t0 = myt0.value;
+name_p = myp.value;
+name_b = myb.value;
+
+
+var today = new Date();
+var dd = today.getDate();
+var mm = today.getMonth()+1;
+var yyyy = today.getFullYear();
+
+if(dd<10) {
+    dd = '0'+dd
+} 
+
+if(mm<10) {
+    mm = '0'+mm
+} 
+
+today = mm + '/' + dd + '/' + yyyy;
+
+var name_val = {
+        "models": {
+            "code":"SNIF",
+            "date":today,
+            "name":name_v,
+            "model":"magnetar",
+            "parameters":{
+                        "vejecta":{
+                            "latex":"Ejecta Velocity (km/s)",
+                            "value":name_vej
+                        },
+                        "mejecta":{
+                            "latex":"Ejecta Mass (Msol)",
+                            "value":name_mej
+                        },
+                        "kappa":{
+                            "latex":"Opacity (cm^2/g)",
+                            "value":name_k
+                        },
+                        "texplosion":{
+                            "latex":"Explosion Day (MJD)",
+                            "value":name_t0
+                        },
+                        "bfield":{
+                            "latex":"Magnetic Field (10^14 G)",
+                            "value":name_b
+                        },
+                        "pspin":{
+                            "latex":"Initial Spin Period (ms)",
+                            "value":name_p
+                        }
+                    }
+                }
+    }
+
+var sampleObject = {};
+sampleObject[name_v] = name_val;
+
+const filename = name_v+'.json';
+filetext = JSON.stringify(sampleObject, null, "\t");
+const blob = new Blob([filetext], { type: 'text/json;charset=utf-8;' });
+
+//addresses IE
+if (navigator.msSaveBlob) {
+    navigator.msSaveBlob(blob, filename)
+} else {
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.download = filename
+    link.target = '_blank'
+    link.style.visibility = 'hidden'
+    link.dispatchEvent(new MouseEvent('click'))
+}
+"""
+
+button = Button(label="Save Model", button_type="success")
+
+
+callback=CustomJS(args=dict(source=source,lumdist = lumdist_input,redshift=redshift_input,plotrange = plot.x_range,cd = color_source, wd = wave_source), code="""
 T.start = plotrange.start;
 T.end = plotrange.end;
 plotrange.change.emit();
@@ -110,7 +200,7 @@ var wavg = 4.64e-5;
 var wavi = 8.06e-5;
 var wavr = 6.58e-5;
 var T = T.value;
-var kg = .06;
+var kg = 0.06;
 var k = k.value;
 var b = bfield.value;
 var p = pspin.value;
@@ -123,9 +213,8 @@ var tp = 2.6e5 * Math.pow(b,-2)*Math.pow(p,2)/86400;
 var yy = td/tp;
 var A = 3. * kg * m / (3.14 * 4. * Math.pow(v,2))/Math.pow(86400.,2)
 
-var distance = parseFloat(distance.value) * 3e24;
-var redshift = redshift.value;
-redshift = parseFloat(redshift);
+var distance = parseFloat(lumdist.value) * 3e24;
+var redshift = parseFloat(redshift.value);
 
 for (j = 0; j < x.length; j++) {
     xstop = j * dx;
@@ -152,8 +241,8 @@ source.change.emit();
 
 
 
-callback2=CustomJS(args=dict(source=source2, plotrange = plot.x_range, yplotrange = plot.y_range,cd = color_source, wd = wave_source), code="""
-    const url = 'https://astrocats.space/api/' + TextThing.value + '/photometry/time+magnitude+e_magnitude+band+upperlimit';
+callback2=CustomJS(args=dict(source=source2,lumdist = lumdist_input,redshift=redshift_input,plotrange = plot.x_range, yplotrange = plot.y_range,cd = color_source, wd = wave_source), code="""
+    const url = 'https://astrocats.space/api/' + SNName.value + '/photometry+redshift+lumdist';
     var sourcedata = source.data;
 fetch(url, {
   method: "GET",
@@ -165,13 +254,20 @@ fetch(url, {
     return response.json();
   })
   .then(function(myJson) {
-    var data = (myJson[TextThing.value]["photometry"]);
+    try {
+          var data = (myJson[SNName.value]["photometry"]);
+    }
+    catch(err) {
+        window.alert(SNName.value+" doesn't seem to exist in sne.space!");
+    }
+    var ldist = (myJson[SNName.value]["lumdist"]);
+    var z = (myJson[SNName.value]["redshift"]);
 
     for (key in cd.data){
         var yspec = []
         for (i = 0; i < data.length; i++){
-            if (data[i][3] == key){
-                yspec.push(parseFloat(data[i][1]));
+            if ((data[i]['band'] == key) & !('realization' in data[i])){
+                yspec.push(parseFloat(data[i]['magnitude']));
                 }else{
                 yspec.push(NaN);
                 }
@@ -184,9 +280,9 @@ fetch(url, {
     var x = [];
     var y = [];
     for (i = 0; i < data.length; i++){
-        if (!data[i][4]){
-        x.push(parseFloat(data[i][0]));
-        y.push(parseFloat(data[i][1]));
+        if ((!data[i]['upperlimit']) &  !('realization' in data[i])){
+        x.push(parseFloat(data[i]['time']));
+        y.push(parseFloat(data[i]['magnitude']));
         }
     }
 
@@ -197,9 +293,12 @@ fetch(url, {
     x = bouncer(x);
     y = bouncer(y);
 
-
     sourcedata["x"] = x;
     sourcedata["y"] = y;
+    console.log(lumdist.value)
+    lumdist.value = ldist[0]['value'];
+    redshift.value = z[0]['value'];
+
     plotrange.start = Math.min(x);
     plotrange.start = Math.min.apply(Math, x);
     yplotrange.start = Math.max.apply(Math, y);
@@ -208,6 +307,8 @@ fetch(url, {
     plotrange.change.emit();
     yplotrange.change.emit();
     source.change.emit();
+    lumdist.change.emit();
+    redshift.change.emit();
 
   })
     """)
@@ -226,17 +327,15 @@ for i,filt in enumerate(filt_data[:,0]):
 arrayoftimes = np.array(photometry_time)
 
 text = TextInput(title="Insert the name of the supernova here:", value='', callback = callback2)
-lumdist_input = TextInput(title="title", value=str(lumdist))
-redshift_input = TextInput(title="title", value=str(redshift))
 
 
 M_slider = Slider(start=0.1, end=10, value=1, step=.1,
                      title="Ejecta Mass (solar mass)", callback=callback)
-bfield_slider = Slider(start=0.1, end=1, value=0.5, step=0.1,
-                    title=r"Magnetic Field (10¹⁴ G)", callback=callback)
-pspin_slider = Slider(start=1, end=10, value=5, step=1,
+bfield_slider = Slider(start=0.1, end=3, value=0.5, step=0.1,
+                    title=r"Magnetic Field (10^14 G)", callback=callback)
+pspin_slider = Slider(start=1, end=10, value=5, step=0.1,
                     title="Spin Period (ms)", callback=callback)
-v_slider = Slider(start=5000, end=20000, value=10000, step=1000,
+v_slider = Slider(start=5000, end=20000, value=10000, step=500,
                       title="Ejecta Velocity (km/s)", callback=callback)
 k_slider = Slider(start=0.1, end=0.4, value=0.2, step=.01,
                        title="Opacity (cm^2/g)", callback=callback)
@@ -252,85 +351,24 @@ callback.args["bfield"] = bfield_slider
 callback.args["pspin"] = pspin_slider
 
 
-callback2.args["TextThing"] = text
+button.callback = CustomJS(args=dict(source=source,vej=v_slider,
+                name_v=text,mej = M_slider, myk = k_slider, 
+                myt0 = T_slider, myb = bfield_slider, myp = pspin_slider),
+                code=javaScript)
 
-callback.args["distance"] = lumdist_input
-callback.args["redshift"] = redshift_input
-
-count = 0
-# for x in photometry_time:
-#   if photometry_band[count] == "r":
-#       plot.circle(x, photometry_mag[count], size=5, color="orange", alpha=0.5)
-#   elif photometry_band[count] == "i":
-#       plot.circle(x, photometry_mag[count], size=5, color="blue", alpha=0.5)
-#   elif photometry_band[count] == "g":
-#       plot.circle(x, photometry_mag[count], size=5, color="turquoise", alpha=0.5)
-#   elif photometry_band[count] == "z":
-#       plot.circle(x, photometry_mag[count], size=5, color="purple", alpha=0.5)
-#   elif photometry_band[count] == "B":
-#       plot.circle(x, photometry_mag[count], size=5, color="pink", alpha=0.5)
-#   count += 1
-
+callback2.args["SNName"] = text
 text.on_change('value', update_title)
-
-def update_data(attrname, old, new):
-
-    # Get the current slider values
-    M = M_slider.value * 2.e33
-    v = v_slider.value * 1.e5
-    k = k_slider.value
-    t = t_original
-    tn = 8.8
-    B = 13.8
-    c = 3*(10**10)
-    E = 3.9*(10**10)
-    td = (((2.*k*M)/(B*c*v))**(1./2.))/60./60./24.
-    integrand = (t/td)*(np.exp(t**2/td**2))*(np.exp(-t/tn))
-    my_int = integrate.cumtrapz(integrand,t, initial = 0)
-    L = ((2.*M*f)/(td)) * (np.exp((-t**2)/td**2)) * E * my_int
-    magnitude = -2.5*np.log10(L/4e33)+4.3
-    radii = v * t * 24*60*60
-    temperature = (L/(4*np.pi*(radii**2)*(5.67*10**-5)))**0.25
-    county = 0
-    wavelength = 5*10**-5
-    wavelength_B = 4.45*10**-5
-    wavelength_r = 6.58*10**-5
-    wavelength_i = 8.06*10**-5
-    wavelength_V = 5.51*10**-5
-    wavelength_U = 3.65*10**-5
-    distance = lumdist * (3*10**24)
-    luminosityblackbody = blackbody(radii, temperature, 5.*(10**-5)*np.ones(len(radii))) * wavelength**2 / c / distance**2
-    luminosityblackbody_B = blackbody(radii, temperature, 5.*(10**-5)*np.ones(len(radii))) * wavelength_B**2 / c / distance**2
-    luminosityblackbody_r = blackbody(radii, temperature, 5.*(10**-5)*np.ones(len(radii))) * wavelength_r**2 / c / distance**2
-    luminosityblackbody_i = blackbody(radii, temperature, 5.*(10**-5)*np.ones(len(radii))) * wavelength_i**2 / c / distance**2
-    luminosityblackbody_V= blackbody(radii, temperature, 5.*(10**-5)*np.ones(len(radii))) * wavelength_V**2 / c / distance**2
-    luminosityblackbody_U = blackbody(radii, temperature, 5.*(10**-5)*np.ones(len(radii))) * wavelength_U**2 / c / distance**2
-    magblackbody = -2.5*np.log10(luminosityblackbody)-48.6
-    magblackbody_B = -2.5*np.log10(luminosityblackbody_B)-48.6
-    magblackbody_r = -2.5*np.log10(luminosityblackbody_r)-48.6
-    magblackbody_i = -2.5*np.log10(luminosityblackbody_i)-48.6
-    magblackbody_V = -2.5*np.log10(luminosityblackbody_V)-48.6
-    magblackbody_U = -2.5*np.log10(luminosityblackbody_U)-48.6
-    # Generate the new curve
-    L = ((2.*M*f)/(td)) * (np.exp((-t**2)/td**2)) * E * my_int
-    magnitude = -2.5*np.log10(L/4e33)+4.3
-
-
-    source.data = dict(x=t*(1.+redshift) + T_slider.value, y= magblackbody ,yB = magblackbody_B, yr = magblackbody_r,yi = magblackbody_i, yV = magblackbody_V, yU = magblackbody_U)
-
-
-#for w in [M_slider,f_slider,v_slider, k_slider, T_slider]:
-#    w.on_change('value', update_data)
-
 
 # Set up layouts and add to document
 inputs = widgetbox(text, M_slider, v_slider, k_slider, T_slider, bfield_slider, pspin_slider)
 layout = row(
     plot,
+    column(
     inputs,
+    button)
 )
 
-output_file("MagnetarThing.html")
+output_file("Magnetar.html")
 
 save(plot)
 show(layout)
