@@ -1,0 +1,44 @@
+{
+	"PTF10hgi": {
+		"models": {
+			"code": "SNIF",
+			"date": "08/09/2019",
+			"name": "PTF10hgi",
+			"model": "magnetar",
+			"parameters": {
+				"vejecta": {
+					"latex": "v_{\rm ej},({\rm km,s}^{-1})",
+					"value": 10000
+				},
+				"mejecta": {
+					"latex": "M_{\rm ej},(M_odot)",
+					"value": 1
+				},
+				"kappa": {
+					"latex": "kappa,({\rm cm}^{2},{\rm g}^{-1})",
+					"value": 0.2
+				},
+				"texplosion": {
+					"latex": "t_{\rm exp},{\rm (days)}",
+					"value": 55390.381
+				},
+				"Bfield": {
+					"latex": "B_{perp},(10^{14},{\rm G})",
+					"value": 0.5
+				},
+				"Pspin": {
+					"latex": "P_{\rm spin},{\rm (ms)}",
+					"value": 5
+				},
+				"Mns": {
+					"latex": "M_{\rm NS},(M_odot)",
+					"value": 1.4
+				},
+				"tmin": {
+					"latex": "days",
+					"value": 58057.312
+				}
+			}
+		}
+	}
+}
